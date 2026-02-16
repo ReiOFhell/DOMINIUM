@@ -18,6 +18,7 @@ import 'package:dominium/domains/progression/application/progression_provider.da
 import 'package:dominium/domains/progression/presentation/progression_screen.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/presentation/throne_screen.dart';
+import 'package:dominium/domains/timeline/presentation/timeline_screen.dart';
 import 'package:dominium/domains/treasury/presentation/treasury_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -206,6 +207,12 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
           subtitle: 'Fluxo, auditoria, cenários e decisões de aquisição.',
           icon: Icons.auto_graph,
           onTap: () => _open(context, const AnalyticsScreen()),
+        ),
+        DomainHubAction(
+          title: 'Timeline Financeira',
+          subtitle: 'Linha do tempo única com filtros e notas rápidas por evento.',
+          icon: Icons.timeline,
+          onTap: () => _open(context, const TimelineScreen()),
         ),
       ],
     );
