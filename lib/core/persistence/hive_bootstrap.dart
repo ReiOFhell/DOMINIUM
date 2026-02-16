@@ -1,3 +1,4 @@
+import 'package:dominium/core/persistence/hive_schema_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class HiveBootstrap {
@@ -13,6 +14,7 @@ class HiveBootstrap {
   static const accountMovementsBox = 'account_movements';
   static const monthlyReportsBox = 'monthly_reports';
   static const settingsBox = 'settings';
+  static const telemetryBox = 'telemetry';
 
   static Future<void> initialize() async {
     await Hive.initFlutter();
@@ -29,6 +31,8 @@ class HiveBootstrap {
       Hive.openBox<Map>(accountMovementsBox),
       Hive.openBox<Map>(monthlyReportsBox),
       Hive.openBox<Map>(settingsBox),
+      Hive.openBox<Map>(telemetryBox),
     ]);
+    await HiveSchemaManager.migrate();
   }
 }

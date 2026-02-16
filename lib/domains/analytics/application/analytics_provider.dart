@@ -1,7 +1,11 @@
+export 'package:dominium/domains/analytics/data/anomaly_engine.dart';
 import 'dart:math';
 
 import 'package:dominium/domains/analytics/data/possibility_result.dart';
+import 'package:dominium/core/services/calculation_telemetry.dart';
+import 'package:dominium/domains/analytics/data/anomaly_engine.dart';
 import 'package:dominium/domains/analytics/data/unified_decision.dart';
+import 'package:dominium/domains/analytics/data/unified_decision_engine.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
 import 'package:dominium/domains/debts_direct/application/direct_debts_provider.dart';
 import 'package:dominium/domains/liquidity/application/accounts_provider.dart';
@@ -9,34 +13,6 @@ import 'package:dominium/domains/progression/application/progression_provider.da
 import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
-enum AnomalyType { padrao, riscoGradual, autodestrutivo }
-
-enum AnomalyAction { abrirDividasCartao, iniciarContencao, abrirOraculo }
-
-class AnomalyInsight {
-  const AnomalyInsight({
-    required this.type,
-    required this.title,
-    required this.description,
-    required this.score,
-    required this.action,
-    required this.actionLabel,
-  });
-
-  final AnomalyType type;
-  final String title;
-  final String description;
-  final int score;
-  final AnomalyAction action;
-  final String actionLabel;
-
-  String get typeLabel => switch (type) {
-        AnomalyType.padrao => 'Padrão',
-        AnomalyType.riscoGradual => 'Risco gradual',
-        AnomalyType.autodestrutivo => 'Autodestrutivo',
-      };
-}
 
 class FlowPoint {
   FlowPoint(this.month, this.income, this.expense, this.balance);
@@ -139,8 +115,6 @@ final anomalyInsightsProvider = Provider<List<AnomalyInsight>>((ref) {
   final debts = ref.watch(debtsProvider);
   final now = DateTime.now();
 
-  final anomalies = <AnomalyInsight>[];
-
   final recentPurchases = debts
       .expand((c) => c.purchases)
       .where((p) => now.difference(p.date).inDays <= 12)
@@ -153,39 +127,9 @@ final anomalyInsightsProvider = Provider<List<AnomalyInsight>>((ref) {
       })
       .fold<double>(0, (s, p) => s + p.amount);
 
-  if (previousPurchases > 0) {
-    final change = ((recentPurchases - previousPurchases) / previousPurchases) * 100;
-    if (change >= 20) {
-      final score = change.clamp(20, 100).round();
-      anomalies.add(
-        AnomalyInsight(
-          type: AnomalyType.padrao,
-          title: 'Mudança abrupta de padrão de compra',
-          description: 'Gastos cresceram ${change.toStringAsFixed(0)}% nos últimos 12 dias.',
-          score: score,
-          action: AnomalyAction.abrirOraculo,
-          actionLabel: 'Abrir Oráculo',
-        ),
-      );
-    }
-  }
-
   final avgCommit = debts.isEmpty
       ? 0.0
       : debts.fold<double>(0, (s, c) => s + c.committedLimitNow) / debts.length;
-  if (avgCommit >= 0.78) {
-    final score = (avgCommit * 100).clamp(0, 100).round();
-    anomalies.add(
-      AnomalyInsight(
-        type: AnomalyType.riscoGradual,
-        title: 'Comprometimento médio elevado',
-        description: 'Limite médio comprometido em ${(avgCommit * 100).toStringAsFixed(0)}%.',
-        score: score,
-        action: AnomalyAction.abrirDividasCartao,
-        actionLabel: 'Abrir Dívidas',
-      ),
-    );
-  }
 
   final impulseBursts = debts
       .expand((c) => c.purchases)
@@ -199,40 +143,21 @@ final anomalyInsightsProvider = Provider<List<AnomalyInsight>>((ref) {
       .where((count) => count >= 4)
       .length;
 
-  if (impulseBursts > 0) {
-    final score = (70 + impulseBursts * 10).clamp(0, 100).round();
-    anomalies.add(
-      AnomalyInsight(
-        type: AnomalyType.autodestrutivo,
-        title: 'Explosão de compras impulsivas',
-        description: 'Detectadas $impulseBursts janela(s) com 4+ compras no mesmo dia.',
-        score: score,
-        action: AnomalyAction.iniciarContencao,
-        actionLabel: 'Iniciar contenção',
-      ),
-    );
-  }
-
   final recentIncome = treasury
       .where((t) => t.received && now.difference(t.date).inDays <= 30)
       .fold<double>(0, (s, t) => s + t.amount);
   final recentOpenDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
-  if (recentIncome > 0 && recentOpenDebt > recentIncome * 1.2) {
-    final overload = (recentOpenDebt / recentIncome) * 100;
-    anomalies.add(
-      AnomalyInsight(
-        type: AnomalyType.riscoGradual,
-        title: 'Dívida aberta acima da renda recente',
-        description: 'Dívida em ${overload.toStringAsFixed(0)}% da renda dos últimos 30 dias.',
-        score: overload.clamp(0, 100).round(),
-        action: AnomalyAction.abrirDividasCartao,
-        actionLabel: 'Ver dívida',
-      ),
-    );
-  }
 
-  anomalies.sort((a, b) => b.score.compareTo(a.score));
-  return anomalies;
+  return buildAnomalyInsights(
+    AnomalySourceMetrics(
+      recentPurchases: recentPurchases,
+      previousPurchases: previousPurchases,
+      averageCommitment: avgCommit,
+      impulseBursts: impulseBursts,
+      recentIncome: recentIncome,
+      openDebt: recentOpenDebt,
+    ),
+  );
 });
 
 final anomalyGroupedProvider = Provider<Map<AnomalyType, List<AnomalyInsight>>>((ref) {
@@ -255,6 +180,7 @@ final anomalyAlertsProvider = Provider<List<String>>((ref) {
 });
 
 
+
 final unifiedDecisionProjectionProvider =
     Provider.family<UnifiedDecisionProjection, UnifiedDecisionScenario>((ref, scenario) {
   final cards = ref.watch(debtsProvider);
@@ -263,64 +189,42 @@ final unifiedDecisionProjectionProvider =
   final progression = ref.watch(progressionProvider);
   final flow = ref.watch(monthlyFlowProvider);
 
-  final baseCardDebt = cards.fold<double>(0, (sum, card) => sum + card.openDebt);
-  final baseDirectDebt = directDebts.fold<double>(0, (sum, debt) => sum + debt.remainingValue);
-  final baseObligations = baseCardDebt + baseDirectDebt;
-  final avgNet = flow.isEmpty ? 0.0 : flow.fold<double>(0, (sum, point) => sum + point.balance) / flow.length;
+  final base = UnifiedDecisionBase(
+    realCash: realCash,
+    cardDebt: cards.fold<double>(0, (sum, card) => sum + card.openDebt),
+    directDebt: directDebts.fold<double>(0, (sum, debt) => sum + debt.remainingValue),
+    averageMonthlyNet:
+        flow.isEmpty ? 0.0 : flow.fold<double>(0, (sum, point) => sum + point.balance) / flow.length,
+    currentLevel: progression.level,
+  );
 
-  UnifiedDecisionSnapshot compute(int months) {
-    var cardDebt = baseCardDebt;
-    var directDebt = baseDirectDebt;
-    var cash = realCash;
+  final projection = simulateUnifiedDecision(scenario: scenario, base: base);
 
-    for (var i = 0; i < months; i++) {
-      cardDebt = (cardDebt + scenario.monthlyCardSpendDelta - scenario.monthlyCardPaymentExtra)
-          .clamp(0.0, double.infinity)
-          .toDouble();
-      directDebt = (directDebt - scenario.monthlyDirectDebtPaymentExtra)
-          .clamp(0.0, double.infinity)
-          .toDouble();
+  final hasInvalidNumber = projection.snapshots.any(
+    (s) => s.projectedRealCash.isNaN || s.projectedObligations.isNaN,
+  );
 
-      cash += avgNet + scenario.monthlyIncomeDelta - scenario.monthlyFixedCostDelta;
-      cash -= scenario.monthlyCardPaymentExtra + scenario.monthlyDirectDebtPaymentExtra;
-    }
-
-    final obligations = cardDebt + directDebt;
-    final denominator = cash <= 0 ? 1.0 : cash;
-    final riskScore = ((obligations / denominator) * 100).clamp(0, 100).round();
-    final riskLabel = riskScore >= 85
-        ? 'Crítico'
-        : riskScore >= 65
-            ? 'Alto'
-            : riskScore >= 40
-                ? 'Moderado'
-                : 'Controlado';
-
-    final levelShift = (scenario.disciplineDelta ~/ 8) + (riskScore <= 45 ? 1 : 0) - (riskScore >= 85 ? 1 : 0);
-    final projectedLevel = (progression.level + levelShift).clamp(1, 99).toInt();
-    final projectedTitle = riskScore >= 85
-        ? 'Devedor em Guerra'
-        : projectedLevel >= 8
-            ? 'Arquiduque do Cofre'
-            : projectedLevel >= 6
-                ? 'Executor do Orçamento'
-                : projectedLevel >= 4
-                    ? 'Conselheiro do Caixa'
-                    : 'Regente em Formação';
-
-    return UnifiedDecisionSnapshot(
-      horizonMonths: months,
-      projectedRealCash: cash,
-      projectedObligations: obligations,
-      riskScore: riskScore,
-      riskLabel: riskLabel,
-      projectedLevel: projectedLevel,
-      projectedTitle: projectedTitle,
+  if (hasInvalidNumber) {
+    CalculationTelemetry.record(
+      area: 'unified_decision',
+      message: 'Projected numbers became NaN',
+      context: {
+        'scenario': scenario.name,
+      },
     );
   }
 
-  return UnifiedDecisionProjection(
-    scenario: scenario,
-    snapshots: [compute(3), compute(6), compute(12)],
+  final inconsistent = projection.snapshots.any(
+    (s) => s.riskScore < 40 && s.projectedObligations > (s.projectedRealCash * 2),
   );
+
+  if (inconsistent) {
+    CalculationTelemetry.record(
+      area: 'unified_decision',
+      message: 'Risk and obligations are inconsistent',
+      context: {'scenario': scenario.name},
+    );
+  }
+
+  return projection;
 });
