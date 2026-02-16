@@ -25,6 +25,17 @@ O app opera com aprendizagem progressiva e contextual:
   - Dominado
 - Ativa o **Mentor Invisível** para intervenções estratégicas sem sobrecarga.
 
+
+## Sistema de Progressão Imperial (Grandioso e com Gravidade)
+
+- **Progresso por prova real**: crescimento real, manutenção estratégica, vitória tática e disciplina.
+- **Títulos vivos com efeito prático**: variam por risco e nível, desbloqueiam ferramentas e mudam vantagens.
+- **Ordem (doutrina)**: Cofre Negro, Lâmina Rubra, Trono Dourado e Conclave alteram foco de evolução.
+- **Campanha de arco automática**: objetivo supremo, missões semanais e desafio chefe.
+- **Economia interna**: Glória, Disciplina, Influência e Selos com anti-exploração (anti-farm).
+- **Loja Imperial funcional**: Oráculos, Decretos, Relíquias e Bênçãos com requisito de nível e custo.
+- **Consequências reais**: penalidade por risco severo/crítico, queda de XP e potencial queda de nível em estado crítico.
+
 ## Estética imperial “cristal líquido vermelho”
 
 - Glassmorphism sombrio com núcleo rubro interno.

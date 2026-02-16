@@ -4,6 +4,7 @@ import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/codex/application/codex_provider.dart';
 import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
+import 'package:dominium/domains/progression/application/progression_provider.dart';
 import 'package:dominium/domains/rituals/application/ritual_provider.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/application/imperial_advisor_provider.dart';
@@ -53,6 +54,7 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
     final phrase = ref.watch(imperialPhraseProvider);
     final advice = ref.watch(imperialAdvisorProvider);
     final interventions = ref.watch(mentorInterventionsProvider);
+    final progressMentor = ref.watch(progressionMentorProvider);
     final treasury = ref.watch(treasuryEntriesProvider);
     final campaigns = ref.watch(campaignsProvider);
     final orders = ref.watch(ordersProvider);
@@ -148,6 +150,21 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
                   ],
                 ),
               ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Mentor de Progressão', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...progressMentor.map((m) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text('• $m'),
+                    )),
+              ],
             ),
           ),
           const SizedBox(height: 12),

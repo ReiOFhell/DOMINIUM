@@ -6,6 +6,7 @@ import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
 import 'package:dominium/domains/codex/presentation/codex_screen.dart';
 import 'package:dominium/domains/debts/presentation/debts_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
+import 'package:dominium/domains/progression/presentation/progression_screen.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/data/empire_settings.dart';
 import 'package:dominium/domains/throne/presentation/throne_screen.dart';
@@ -136,6 +137,7 @@ class _EmpireShellState extends ConsumerState<EmpireShell> {
     ThroneScreen(),
     TreasuryScreen(),
     DebtsScreen(),
+    ProgressionScreen(),
     OrdersScreen(),
     CampaignsScreen(),
     AnalyticsScreen(),
@@ -155,6 +157,7 @@ class _EmpireShellState extends ConsumerState<EmpireShell> {
           NavigationDestination(icon: const Icon(Icons.account_balance), label: settings.throneLabel),
           NavigationDestination(icon: const Icon(Icons.account_balance_wallet), label: settings.treasuryLabel),
           const NavigationDestination(icon: Icon(Icons.shield), label: 'Dívidas'),
+          const NavigationDestination(icon: Icon(Icons.military_tech), label: 'Sistema'),
           NavigationDestination(icon: const Icon(Icons.gavel), label: settings.ordersLabel),
           NavigationDestination(icon: const Icon(Icons.flag), label: settings.campaignsLabel),
           const NavigationDestination(icon: Icon(Icons.auto_graph), label: 'Oráculo'),
