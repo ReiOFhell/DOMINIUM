@@ -172,7 +172,7 @@ class DebtsController extends StateNotifier<List<DebtCard>> {
     final invoices = card.invoices.map((inv) {
       if (inv.id != invoice.id) return inv;
       final paid = inv.paid + value;
-      final open = (inv.total - paid).clamp(0, double.infinity);
+      final open = (inv.total - paid).clamp(0, double.infinity).toDouble();
       return InvoiceCycle(
         id: inv.id,
         closingDate: inv.closingDate,
@@ -222,7 +222,7 @@ class DebtsController extends StateNotifier<List<DebtCard>> {
         }
       }
 
-      final committed = (total / card.limit).clamp(0, 1);
+      final committed = (total / card.limit).clamp(0.0, 1.0).toDouble();
       result.add(MonthlyProjection(
         month: monthDate,
         predictedTotal: total,
@@ -245,7 +245,7 @@ class DebtsController extends StateNotifier<List<DebtCard>> {
 
     for (var i = 0; i < maxMonths && remaining > 0; i++) {
       remaining = (remaining * (1 + card.defaultInterest / 100)) - monthlyBudget;
-      timeline.add(PayoffMilestone(cursor, remaining.clamp(0, double.infinity)));
+      timeline.add(PayoffMilestone(cursor, remaining.clamp(0.0, double.infinity).toDouble()));
       cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
 

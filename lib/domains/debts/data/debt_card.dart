@@ -202,14 +202,14 @@ class DebtCard {
     final purchaseTotal = purchases.fold<double>(0, (sum, p) {
       if (p.type == PurchaseType.vista) return sum + p.amount;
       final remaining = p.installments - p.currentInstallment + 1;
-      return sum + (p.installmentValue * remaining.clamp(0, p.installments));
+      return sum + (p.installmentValue * remaining.clamp(0, p.installments).toDouble());
     });
     final paid = payments.fold<double>(0, (sum, p) => sum + p.value);
     final extra = charges.fold<double>(0, (sum, c) => sum + c.value);
-    return (purchaseTotal + extra - paid).clamp(0, double.infinity);
+    return (purchaseTotal + extra - paid).clamp(0.0, double.infinity).toDouble();
   }
 
-  double get committedLimitNow => (openDebt / limit).clamp(0, 1);
+  double get committedLimitNow => (openDebt / limit).clamp(0.0, 1.0).toDouble();
 
   Map<String, dynamic> toMap() => {
         'id': id,
