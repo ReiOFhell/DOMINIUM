@@ -98,3 +98,70 @@ final possibilityScenariosProvider = Provider<List<PossibilityResult>>((ref) {
     build(ScenarioProfile.agressivo, 0.33),
   ];
 });
+
+
+final anomalyAlertsProvider = Provider<List<String>>((ref) {
+  final treasury = ref.watch(treasuryEntriesProvider);
+  final debts = ref.watch(debtsProvider);
+  final now = DateTime.now();
+
+  final alerts = <String>[];
+
+  final recentPurchases = debts
+      .expand((c) => c.purchases)
+      .where((p) => now.difference(p.date).inDays <= 12)
+      .fold<double>(0, (s, p) => s + p.amount);
+  final previousPurchases = debts
+      .expand((c) => c.purchases)
+      .where((p) {
+        final d = now.difference(p.date).inDays;
+        return d > 12 && d <= 24;
+      })
+      .fold<double>(0, (s, p) => s + p.amount);
+
+  if (previousPurchases > 0) {
+    final change = ((recentPurchases - previousPurchases) / previousPurchases) * 100;
+    if (change >= 20) {
+      alerts.add(
+        'Seu padrão mudou. Seus gastos aumentaram ${change.toStringAsFixed(0)}% nos últimos 12 dias.',
+      );
+    }
+  }
+
+  final avgCommit = debts.isEmpty
+      ? 0.0
+      : debts.fold<double>(0, (s, c) => s + c.committedLimitNow) / debts.length;
+  if (avgCommit >= 0.78) {
+    alerts.add('Risco gradual detectado: comprometimento médio de limite acima de 78%.');
+  }
+
+  final impulseBursts = debts
+      .expand((c) => c.purchases)
+      .where((p) => now.difference(p.date).inDays <= 7)
+      .fold<Map<String, int>>({}, (map, p) {
+        final key = '${p.date.year}-${p.date.month}-${p.date.day}';
+        map[key] = (map[key] ?? 0) + 1;
+        return map;
+      })
+      .values
+      .where((count) => count >= 4)
+      .length;
+
+  if (impulseBursts > 0) {
+    alerts.add('Comportamento autodestrutivo identificado: sequência de compras impulsivas em curto intervalo.');
+  }
+
+  final recentIncome = treasury
+      .where((t) => t.received && now.difference(t.date).inDays <= 30)
+      .fold<double>(0, (s, t) => s + t.amount);
+  final recentOpenDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
+  if (recentIncome > 0 && recentOpenDebt > recentIncome * 1.2) {
+    alerts.add('Mudança perigosa: dívida aberta acima de 120% da renda recente do ciclo.');
+  }
+
+  if (alerts.isEmpty) {
+    alerts.add('Sem anomalias críticas no momento. O padrão financeiro está sob controle.');
+  }
+
+  return alerts;
+});

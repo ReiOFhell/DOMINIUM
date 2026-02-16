@@ -1,5 +1,6 @@
 import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/core/widgets/glass_card.dart';
+import 'package:dominium/domains/analytics/application/analytics_provider.dart';
 import 'package:dominium/domains/analytics/presentation/analytics_screen.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
@@ -63,6 +64,7 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
     final debts = ref.watch(debtsProvider);
     final campaigns = ref.watch(campaignsProvider);
     final title = ref.watch(currentImperialTitleProvider);
+    final anomalies = ref.watch(anomalyAlertsProvider);
 
     final openDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
     final risk = debts.isEmpty
@@ -85,36 +87,64 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Centro de Comando', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(title.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text('Estado Atual do Império: $risk'),
-              const SizedBox(height: 8),
               Text('Dívida aberta: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(openDebt)}'),
               Text('Campanhas ativas: ${campaigns.length}'),
             ],
           ),
         ),
         const SizedBox(height: 12),
-        DomainHubScreen(
-          title: 'Centro de Comando',
-          description:
-              'Visão unificada dos pontos críticos. Hierarquia absoluta para decisões imediatas.',
-          actions: [
-            DomainHubAction(
-              title: 'Trono Estratégico',
-              subtitle: 'Painel completo de estado, mentor e rituais.',
-              icon: Icons.account_balance,
-              onTap: () => _open(context, const ThroneScreen()),
-            ),
-            DomainHubAction(
-              title: 'Trono das Dívidas',
-              subtitle: 'Domine risco, fatura e rotativo com prioridade máxima.',
-              icon: Icons.shield,
-              badge: risk,
-              mood: risk == 'Crítico' ? ImperialMood.critico : ImperialMood.alerta,
-              onTap: () => _open(context, const DebtsScreen()),
-            ),
-          ],
+        GlassCard(
+          mood: anomalies.first.startsWith('Sem anomalias') ? ImperialMood.calmo : ImperialMood.alerta,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Sistema de Detecção de Anomalias', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...anomalies.map((a) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text('• $a'),
+                  )),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Ações Prioritárias', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.account_balance),
+                title: const Text('Trono Estratégico'),
+                subtitle: const Text('Estado geral, mentor, rituais e decretos.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _open(context, const ThroneScreen()),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.shield),
+                title: const Text('Trono das Dívidas'),
+                subtitle: const Text('Risco, faturas e contenção imediata.'),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withOpacity(0.08),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Text(risk, style: const TextStyle(fontSize: 11)),
+                ),
+                onTap: () => _open(context, const DebtsScreen()),
+              ),
+            ],
+          ),
         ),
       ],
     );
