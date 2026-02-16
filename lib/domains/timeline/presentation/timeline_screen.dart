@@ -174,7 +174,7 @@ class TimelineScreen extends ConsumerWidget {
         TimelineDomain.anomalias => ImperialMood.alerta,
         TimelineDomain.progresso => ImperialMood.calmo,
         TimelineDomain.pagamentos => ImperialMood.calmo,
-        TimelineDomain.contas => ImperialMood.neutro,
+        TimelineDomain.contas => ImperialMood.calmo,
         TimelineDomain.cartao => ImperialMood.alerta,
         TimelineDomain.dividaDireta => ImperialMood.alerta,
       };
