@@ -1,6 +1,7 @@
 import 'package:dominium/core/persistence/hive_bootstrap.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
 import 'package:dominium/domains/debts/data/debt_card.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
