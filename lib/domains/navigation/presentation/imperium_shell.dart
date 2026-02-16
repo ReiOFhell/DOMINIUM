@@ -7,7 +7,11 @@ import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
 import 'package:dominium/domains/codex/presentation/codex_screen.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
 import 'package:dominium/domains/debts/presentation/debts_screen.dart';
+import 'package:dominium/domains/debts_direct/application/direct_debts_provider.dart';
+import 'package:dominium/domains/debts_direct/presentation/direct_debts_screen.dart';
 import 'package:dominium/domains/navigation/presentation/domain_hub_screen.dart';
+import 'package:dominium/domains/liquidity/application/accounts_provider.dart';
+import 'package:dominium/domains/liquidity/presentation/accounts_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
 import 'package:dominium/domains/progression/application/progression_provider.dart';
 import 'package:dominium/domains/progression/presentation/progression_screen.dart';
@@ -65,8 +69,12 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
     final campaigns = ref.watch(campaignsProvider);
     final title = ref.watch(currentImperialTitleProvider);
     final anomalies = ref.watch(anomalyAlertsProvider);
+    final directDebt = ref.watch(totalDirectDebtsProvider);
+    final realBalance = ref.watch(accountsProvider).totalBalance;
 
     final openDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
+    final totalObligations = openDebt + directDebt;
+    final projectedNet = realBalance - totalObligations;
     final risk = debts.isEmpty
         ? 'Estável'
         : debts.any((c) => c.committedLimitNow > 0.85)
@@ -92,7 +100,9 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
               Text(title.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text('Estado Atual do Império: $risk'),
-              Text('Dívida aberta: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(openDebt)}'),
+              Text('Saldo real atual: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(realBalance)}'),
+              Text('Obrigações totais: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(totalObligations)}'),
+              Text('Caixa líquido projetado: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(projectedNet)}'),
               Text('Campanhas ativas: ${campaigns.length}'),
             ],
           ),
@@ -130,7 +140,7 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.shield),
-                title: const Text('Trono das Dívidas'),
+                title: const Text('Trono das Dívidas (Cartão)'),
                 subtitle: const Text('Risco, faturas e contenção imediata.'),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -142,6 +152,14 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
                   child: Text(risk, style: const TextStyle(fontSize: 11)),
                 ),
                 onTap: () => _open(context, const DebtsScreen()),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.handshake),
+                title: const Text('Dívidas Diretas'),
+                subtitle: const Text('Obrigações fora de cartão com histórico parcial.'),
+                trailing: Text(NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(directDebt), style: const TextStyle(fontSize: 11)),
+                onTap: () => _open(context, const DirectDebtsScreen()),
               ),
             ],
           ),
@@ -163,10 +181,22 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
           onTap: () => _open(context, const TreasuryScreen()),
         ),
         DomainHubAction(
-          title: 'Trono das Dívidas',
+          title: 'Trono das Dívidas (Cartão)',
           subtitle: 'Compras, faturas, estratégia e guerra de quitação.',
           icon: Icons.shield,
           onTap: () => _open(context, const DebtsScreen()),
+        ),
+        DomainHubAction(
+          title: 'Dívidas Diretas',
+          subtitle: 'Empréstimos, promessas e parcelamentos informais.',
+          icon: Icons.handshake,
+          onTap: () => _open(context, const DirectDebtsScreen()),
+        ),
+        DomainHubAction(
+          title: 'Contas e Saldo Real',
+          subtitle: 'Contas bancárias, dinheiro físico e reservas líquidas.',
+          icon: Icons.account_balance,
+          onTap: () => _open(context, const AccountsScreen()),
         ),
         DomainHubAction(
           title: 'Oráculo Financeiro',

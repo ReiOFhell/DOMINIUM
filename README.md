@@ -7,11 +7,24 @@ Sistema de soberania pessoal offline-first com arquitetura modular em Flutter.
 - **Trono**: estado do império, títulos, conselheira e ritual diário.
 - **Tesouro**: receitas, histórico e leitura de saldo.
 - **Trono das Dívidas**: gestão robusta de cartão (compras, faturas, pagamentos, projeção e plano de quitação).
+- **Dívidas Diretas**: obrigações fora de cartão (empréstimos, promessas, parcelamentos informais).
+- **Contas e Saldo Real**: contas bancárias, dinheiro físico e reservas líquidas.
 - **Ordens**: execução de decretos diários.
 - **Campanhas**: guerras de longo prazo.
 - **Oráculo Financeiro**: gráficos, auditoria e calculadora de possibilidades.
 - **Codex Imperial**: biblioteca viva de sistemas descobertos e domínio de uso.
 
+
+
+## Separação estrutural do domínio financeiro
+
+- **Saldo (o que existe):** consolidado por contas reais.
+- **Receita (o que entra):** histórico de entradas no Tesouro.
+- **Dívida (o que é devido):** dividido em cartão e dívida direta.
+- O Centro mostra simultaneamente:
+  - saldo atual total,
+  - total de obrigações,
+  - caixa líquido projetado.
 
 ## Rebranding Liquid Crystal Imperial (Ordem Visual)
 
