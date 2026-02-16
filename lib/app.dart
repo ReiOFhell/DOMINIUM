@@ -1,16 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:dominium/core/theme/dominium_theme.dart';
-import 'package:dominium/domains/analytics/presentation/analytics_screen.dart';
-import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
-import 'package:dominium/domains/codex/presentation/codex_screen.dart';
-import 'package:dominium/domains/debts/presentation/debts_screen.dart';
-import 'package:dominium/domains/orders/presentation/orders_screen.dart';
-import 'package:dominium/domains/progression/presentation/progression_screen.dart';
+import 'package:dominium/domains/navigation/presentation/imperium_shell.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/data/empire_settings.dart';
-import 'package:dominium/domains/throne/presentation/throne_screen.dart';
-import 'package:dominium/domains/treasury/presentation/treasury_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -55,7 +48,7 @@ class _SplashGateState extends State<SplashGate>
     Future<void>.delayed(const Duration(milliseconds: 2600), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const EmpireShell()),
+          MaterialPageRoute<void>(builder: (_) => const ImperiumShell()),
         );
       }
     });
@@ -123,47 +116,3 @@ class RadialPulsePainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-class EmpireShell extends ConsumerStatefulWidget {
-  const EmpireShell({super.key});
-
-  @override
-  ConsumerState<EmpireShell> createState() => _EmpireShellState();
-}
-
-class _EmpireShellState extends ConsumerState<EmpireShell> {
-  int index = 0;
-
-  final pages = const [
-    ThroneScreen(),
-    TreasuryScreen(),
-    DebtsScreen(),
-    ProgressionScreen(),
-    OrdersScreen(),
-    CampaignsScreen(),
-    AnalyticsScreen(),
-    CodexScreen(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = ref.watch(empireSettingsProvider);
-
-    return Scaffold(
-      body: IndexedStack(index: index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (v) => setState(() => index = v),
-        destinations: [
-          NavigationDestination(icon: const Icon(Icons.account_balance), label: settings.throneLabel),
-          NavigationDestination(icon: const Icon(Icons.account_balance_wallet), label: settings.treasuryLabel),
-          const NavigationDestination(icon: Icon(Icons.shield), label: 'Dívidas'),
-          const NavigationDestination(icon: Icon(Icons.military_tech), label: 'Sistema'),
-          NavigationDestination(icon: const Icon(Icons.gavel), label: settings.ordersLabel),
-          NavigationDestination(icon: const Icon(Icons.flag), label: settings.campaignsLabel),
-          const NavigationDestination(icon: Icon(Icons.auto_graph), label: 'Oráculo'),
-          const NavigationDestination(icon: Icon(Icons.menu_book), label: 'Codex'),
-        ],
-      ),
-    );
-  }
-}

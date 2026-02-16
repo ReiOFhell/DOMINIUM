@@ -12,6 +12,17 @@ Sistema de soberania pessoal offline-first com arquitetura modular em Flutter.
 - **Oráculo Financeiro**: gráficos, auditoria e calculadora de possibilidades.
 - **Codex Imperial**: biblioteca viva de sistemas descobertos e domínio de uso.
 
+
+## Rebranding Liquid Crystal Imperial (Ordem Visual)
+
+- Navegação principal reorganizada em 4 domínios superiores:
+  - **Centro** (estado atual e prioridades imediatas)
+  - **Finanças** (Tesouro, Dívidas, Oráculo)
+  - **Execução** (Ordens, Campanhas)
+  - **Sistema** (Progressão, Codex)
+- Hierarquia de informação orientada por contexto e risco (atenção automática para dívida/pressão).
+- Camada de entrada por hubs para reduzir ruído e tornar funções profundas mais encontráveis.
+
 ## Princípio de ensino do próprio sistema
 
 O app opera com aprendizagem progressiva e contextual:
