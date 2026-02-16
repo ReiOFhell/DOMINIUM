@@ -1,0 +1,20 @@
+import 'package:hive_flutter/hive_flutter.dart';
+
+class HiveBootstrap {
+  static const treasuryBox = 'treasury_entries';
+  static const ordersBox = 'orders';
+  static const campaignsBox = 'campaigns';
+  static const ritualsBox = 'rituals';
+  static const settingsBox = 'settings';
+
+  static Future<void> initialize() async {
+    await Hive.initFlutter();
+    await Future.wait([
+      Hive.openBox<Map>(treasuryBox),
+      Hive.openBox<Map>(ordersBox),
+      Hive.openBox<Map>(campaignsBox),
+      Hive.openBox<Map>(ritualsBox),
+      Hive.openBox<Map>(settingsBox),
+    ]);
+  }
+}
