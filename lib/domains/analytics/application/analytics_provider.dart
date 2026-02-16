@@ -1,7 +1,11 @@
 import 'dart:math';
 
 import 'package:dominium/domains/analytics/data/possibility_result.dart';
+import 'package:dominium/domains/analytics/data/unified_decision.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
+import 'package:dominium/domains/debts_direct/application/direct_debts_provider.dart';
+import 'package:dominium/domains/liquidity/application/accounts_provider.dart';
+import 'package:dominium/domains/progression/application/progression_provider.dart';
 import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -248,4 +252,75 @@ final anomalyAlertsProvider = Provider<List<String>>((ref) {
   return anomalies
       .map((a) => '[${a.typeLabel} • ${a.score}/100] ${a.description}')
       .toList();
+});
+
+
+final unifiedDecisionProjectionProvider =
+    Provider.family<UnifiedDecisionProjection, UnifiedDecisionScenario>((ref, scenario) {
+  final cards = ref.watch(debtsProvider);
+  final directDebts = ref.watch(directDebtsProvider);
+  final realCash = ref.watch(accountsProvider).totalBalance;
+  final progression = ref.watch(progressionProvider);
+  final flow = ref.watch(monthlyFlowProvider);
+
+  final baseCardDebt = cards.fold<double>(0, (sum, card) => sum + card.openDebt);
+  final baseDirectDebt = directDebts.fold<double>(0, (sum, debt) => sum + debt.remainingValue);
+  final baseObligations = baseCardDebt + baseDirectDebt;
+  final avgNet = flow.isEmpty ? 0.0 : flow.fold<double>(0, (sum, point) => sum + point.balance) / flow.length;
+
+  UnifiedDecisionSnapshot compute(int months) {
+    var cardDebt = baseCardDebt;
+    var directDebt = baseDirectDebt;
+    var cash = realCash;
+
+    for (var i = 0; i < months; i++) {
+      cardDebt = (cardDebt + scenario.monthlyCardSpendDelta - scenario.monthlyCardPaymentExtra)
+          .clamp(0.0, double.infinity)
+          .toDouble();
+      directDebt = (directDebt - scenario.monthlyDirectDebtPaymentExtra)
+          .clamp(0.0, double.infinity)
+          .toDouble();
+
+      cash += avgNet + scenario.monthlyIncomeDelta - scenario.monthlyFixedCostDelta;
+      cash -= scenario.monthlyCardPaymentExtra + scenario.monthlyDirectDebtPaymentExtra;
+    }
+
+    final obligations = cardDebt + directDebt;
+    final denominator = cash <= 0 ? 1.0 : cash;
+    final riskScore = ((obligations / denominator) * 100).clamp(0, 100).round();
+    final riskLabel = riskScore >= 85
+        ? 'Crítico'
+        : riskScore >= 65
+            ? 'Alto'
+            : riskScore >= 40
+                ? 'Moderado'
+                : 'Controlado';
+
+    final levelShift = (scenario.disciplineDelta ~/ 8) + (riskScore <= 45 ? 1 : 0) - (riskScore >= 85 ? 1 : 0);
+    final projectedLevel = (progression.level + levelShift).clamp(1, 99).toInt();
+    final projectedTitle = riskScore >= 85
+        ? 'Devedor em Guerra'
+        : projectedLevel >= 8
+            ? 'Arquiduque do Cofre'
+            : projectedLevel >= 6
+                ? 'Executor do Orçamento'
+                : projectedLevel >= 4
+                    ? 'Conselheiro do Caixa'
+                    : 'Regente em Formação';
+
+    return UnifiedDecisionSnapshot(
+      horizonMonths: months,
+      projectedRealCash: cash,
+      projectedObligations: obligations,
+      riskScore: riskScore,
+      riskLabel: riskLabel,
+      projectedLevel: projectedLevel,
+      projectedTitle: projectedTitle,
+    );
+  }
+
+  return UnifiedDecisionProjection(
+    scenario: scenario,
+    snapshots: [compute(3), compute(6), compute(12)],
+  );
 });

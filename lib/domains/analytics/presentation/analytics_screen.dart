@@ -2,6 +2,7 @@ import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/analytics/application/analytics_provider.dart';
 import 'package:dominium/domains/analytics/data/possibility_result.dart';
+import 'package:dominium/domains/analytics/data/unified_decision.dart';
 import 'package:dominium/domains/codex/application/codex_provider.dart';
 import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
@@ -26,12 +27,76 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   final installments = TextEditingController(text: '6');
   final interest = TextEditingController(text: '3');
 
+  final aCardSpend = TextEditingController(text: '0');
+  final aIncomeDelta = TextEditingController(text: '0');
+  final aCostDelta = TextEditingController(text: '0');
+  final aCardPayment = TextEditingController(text: '0');
+  final aDirectPayment = TextEditingController(text: '0');
+  final aDiscipline = TextEditingController(text: '0');
+
+  final bCardSpend = TextEditingController(text: '300');
+  final bIncomeDelta = TextEditingController(text: '0');
+  final bCostDelta = TextEditingController(text: '0');
+  final bCardPayment = TextEditingController(text: '100');
+  final bDirectPayment = TextEditingController(text: '150');
+  final bDiscipline = TextEditingController(text: '10');
+
+  @override
+  void dispose() {
+    for (final c in [
+      fixedIncome,
+      variableIncome,
+      fixedCosts,
+      margin,
+      debtTarget,
+      installments,
+      interest,
+      aCardSpend,
+      aIncomeDelta,
+      aCostDelta,
+      aCardPayment,
+      aDirectPayment,
+      aDiscipline,
+      bCardSpend,
+      bIncomeDelta,
+      bCostDelta,
+      bCardPayment,
+      bDirectPayment,
+      bDiscipline,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final flow = ref.watch(monthlyFlowProvider);
     final scenarios = ref.watch(possibilityScenariosProvider);
     final debts = ref.watch(debtsProvider);
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    final scenarioA = UnifiedDecisionScenario(
+      name: 'Cenário A',
+      monthlyCardSpendDelta: _parse(aCardSpend.text),
+      monthlyIncomeDelta: _parse(aIncomeDelta.text),
+      monthlyFixedCostDelta: _parse(aCostDelta.text),
+      monthlyCardPaymentExtra: _parse(aCardPayment.text),
+      monthlyDirectDebtPaymentExtra: _parse(aDirectPayment.text),
+      disciplineDelta: _parse(aDiscipline.text).toInt(),
+    );
+    final scenarioB = UnifiedDecisionScenario(
+      name: 'Cenário B',
+      monthlyCardSpendDelta: _parse(bCardSpend.text),
+      monthlyIncomeDelta: _parse(bIncomeDelta.text),
+      monthlyFixedCostDelta: _parse(bCostDelta.text),
+      monthlyCardPaymentExtra: _parse(bCardPayment.text),
+      monthlyDirectDebtPaymentExtra: _parse(bDirectPayment.text),
+      disciplineDelta: _parse(bDiscipline.text).toInt(),
+    );
+
+    final projectionA = ref.watch(unifiedDecisionProjectionProvider(scenarioA));
+    final projectionB = ref.watch(unifiedDecisionProjectionProvider(scenarioB));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Oráculo Financeiro')),
@@ -81,8 +146,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 ),
                 const SizedBox(height: 8),
                 ...flow.map((f) => Text(
-                    '${DateFormat('MM/yy').format(f.month)} • Ganhos ${currency.format(f.income)} • Gastos ${currency.format(f.expense)} • Saldo ${currency.format(f.balance)}',
-                    style: const TextStyle(fontSize: 12))),
+                      '${DateFormat('MM/yy').format(f.month)} • Ganhos ${currency.format(f.income)} • Gastos ${currency.format(f.expense)} • Saldo ${currency.format(f.balance)}',
+                      style: const TextStyle(fontSize: 12),
+                    )),
               ],
             ),
           ),
@@ -116,7 +182,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 12),
           GlassCard(
             child: Column(
@@ -133,9 +198,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           ),
           const SizedBox(height: 12),
           _calculatorCard(),
-
           const SizedBox(height: 12),
-
+          _unifiedDecisionCard(projectionA, projectionB, currency),
           const SizedBox(height: 12),
           GlassCard(
             child: Column(
@@ -151,13 +215,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 ].map((e) => Padding(
                       padding: EdgeInsets.only(bottom: 6),
                       child: Row(
-                        children: [Icon(Icons.check_circle_outline, size: 16), SizedBox(width: 8), Expanded(child: Text(e))],
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(child: Text(e)),
+                        ],
                       ),
                     )),
               ],
             ),
           ),
-
           ...scenarios.map(
             (s) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -179,6 +246,89 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _unifiedDecisionCard(
+    UnifiedDecisionProjection projectionA,
+    UnifiedDecisionProjection projectionB,
+    NumberFormat currency,
+  ) {
+    final aByMonths = {for (final s in projectionA.snapshots) s.horizonMonths: s};
+    final bByMonths = {for (final s in projectionB.snapshots) s.horizonMonths: s};
+
+    Widget scenarioEditor(
+      String label,
+      TextEditingController cardSpend,
+      TextEditingController income,
+      TextEditingController cost,
+      TextEditingController cardPayment,
+      TextEditingController directPayment,
+      TextEditingController discipline,
+    ) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            TextField(controller: cardSpend, decoration: const InputDecoration(labelText: 'Δ compra cartão / mês')),
+            TextField(controller: income, decoration: const InputDecoration(labelText: 'Δ receita / mês')),
+            TextField(controller: cost, decoration: const InputDecoration(labelText: 'Δ custo fixo / mês')),
+            TextField(controller: cardPayment, decoration: const InputDecoration(labelText: 'Pagamento extra cartão / mês')),
+            TextField(controller: directPayment, decoration: const InputDecoration(labelText: 'Pagamento extra dívida direta / mês')),
+            TextField(controller: discipline, decoration: const InputDecoration(labelText: 'Δ disciplina (progressão)')),
+          ],
+        ),
+      );
+    }
+
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Simulador Unificado de Decisões', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text('Se eu fizer X hoje, como fico em 3/6/12 meses?', style: TextStyle(color: Colors.white70)),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              scenarioEditor('Cenário A', aCardSpend, aIncomeDelta, aCostDelta, aCardPayment, aDirectPayment, aDiscipline),
+              const SizedBox(width: 10),
+              scenarioEditor('Cenário B', bCardSpend, bIncomeDelta, bCostDelta, bCardPayment, bDirectPayment, bDiscipline),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FilledButton.tonal(onPressed: () => setState(() {}), child: const Text('Comparar cenários')),
+          const SizedBox(height: 10),
+          ...[3, 6, 12].map((months) {
+            final a = aByMonths[months]!;
+            final b = bByMonths[months]!;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white24),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Horizonte: $months meses', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Text('Caixa real • A ${currency.format(a.projectedRealCash)} | B ${currency.format(b.projectedRealCash)}'),
+                    Text('Obrigações • A ${currency.format(a.projectedObligations)} | B ${currency.format(b.projectedObligations)}'),
+                    Text('Risco • A ${a.riskLabel} (${a.riskScore}/100) | B ${b.riskLabel} (${b.riskScore}/100)'),
+                    Text('Progressão • A Nível ${a.projectedLevel} (${a.projectedTitle}) | B Nível ${b.projectedLevel} (${b.projectedTitle})'),
+                  ],
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
