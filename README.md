@@ -40,5 +40,5 @@ flutter run
 
 ## Observações
 
-- Este MVP já contempla base para notificações ritualísticas e biometria em `core/services/imperial_services.dart`.
+- Este MVP já contempla biometria em `core/services/imperial_services.dart` e mantém placeholders para notificações ritualísticas.
 - O design usa fundo OLED preto, vermelho imperial e detalhes dourados com cards translúcidos.
