@@ -15,7 +15,7 @@ class DominiumTheme {
         surface: const Color(0xFF121212),
       ),
       textTheme: base.textTheme.apply(fontFamily: 'Roboto', bodyColor: Colors.white),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: Colors.white.withOpacity(0.06),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
