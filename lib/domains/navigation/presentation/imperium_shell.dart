@@ -11,6 +11,7 @@ import 'package:dominium/domains/debts_direct/application/direct_debts_provider.
 import 'package:dominium/domains/debts_direct/presentation/direct_debts_screen.dart';
 import 'package:dominium/domains/navigation/presentation/domain_hub_screen.dart';
 import 'package:dominium/domains/liquidity/application/accounts_provider.dart';
+import 'package:dominium/domains/liquidity/application/war_coffers_provider.dart';
 import 'package:dominium/domains/liquidity/presentation/accounts_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
 import 'package:dominium/domains/progression/application/progression_provider.dart';
@@ -71,6 +72,7 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
     final anomalies = ref.watch(anomalyAlertsProvider);
     final directDebt = ref.watch(totalDirectDebtsProvider);
     final realBalance = ref.watch(accountsProvider).totalBalance;
+    final warBudget = ref.watch(warBudgetSummaryProvider);
 
     final openDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
     final totalObligations = openDebt + directDebt;
@@ -103,6 +105,7 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
               Text('Saldo real atual: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(realBalance)}'),
               Text('Obrigações totais: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(totalObligations)}'),
               Text('Caixa líquido projetado: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(projectedNet)}'),
+              Text('Saldo livre de guerra: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(warBudget.warFreeBalance)}'),
               Text('Campanhas ativas: ${campaigns.length}'),
             ],
           ),

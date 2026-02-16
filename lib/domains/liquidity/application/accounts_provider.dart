@@ -12,6 +12,17 @@ class AccountsState {
   double get totalBalance => accounts.fold<double>(0, (s, a) => s + a.balance);
 }
 
+enum MovementExecutionStatus { executed, warning, blocked }
+
+class MovementExecutionResult {
+  const MovementExecutionResult({required this.status, required this.message});
+
+  final MovementExecutionStatus status;
+  final String message;
+
+  bool get applied => status != MovementExecutionStatus.blocked;
+}
+
 final accountsRepositoryProvider = Provider<AccountsRepository>((_) => AccountsRepository.fromHive());
 
 final accountsProvider = StateNotifierProvider<AccountsController, AccountsState>(
@@ -64,13 +75,31 @@ class AccountsController extends StateNotifier<AccountsState> {
     _refresh();
   }
 
-  Future<void> move({
+  Future<MovementExecutionResult> move({
     required FinancialAccount account,
     required String description,
     required double amount,
     required MovementType type,
+    double? essentialGuardBalance,
+    double? warningGuardBalance,
   }) async {
+    final projectedTotal = state.totalBalance + (type == MovementType.entrada ? amount : -amount);
+
+    if (type == MovementType.saida && essentialGuardBalance != null && projectedTotal < essentialGuardBalance) {
+      return const MovementExecutionResult(
+        status: MovementExecutionStatus.blocked,
+        message: 'Bloqueado: saída ameaça o cofre Essencial.',
+      );
+    }
+
     final updatedBalance = account.balance + (type == MovementType.entrada ? amount : -amount);
+    if (updatedBalance < 0) {
+      return const MovementExecutionResult(
+        status: MovementExecutionStatus.blocked,
+        message: 'Bloqueado: conta não pode ficar negativa.',
+      );
+    }
+
     await _repository.upsertAccount(account.copyWith(balance: updatedBalance));
     await _repository.addMovement(
       AccountMovement(
@@ -83,6 +112,18 @@ class AccountsController extends StateNotifier<AccountsState> {
       ),
     );
     _refresh();
+
+    if (type == MovementType.saida && warningGuardBalance != null && projectedTotal < warningGuardBalance) {
+      return const MovementExecutionResult(
+        status: MovementExecutionStatus.warning,
+        message: 'Alerta: saída encosta no limite do cofre Essencial.',
+      );
+    }
+
+    return const MovementExecutionResult(
+      status: MovementExecutionStatus.executed,
+      message: 'Movimento executado dentro dos limites.',
+    );
   }
 
   void _refresh() {
