@@ -3,19 +3,27 @@ import 'dart:math' as math;
 import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
+import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
+import 'package:dominium/domains/throne/data/empire_settings.dart';
 import 'package:dominium/domains/throne/presentation/throne_screen.dart';
 import 'package:dominium/domains/treasury/presentation/treasury_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DominiumApp extends StatelessWidget {
+class DominiumApp extends ConsumerWidget {
   const DominiumApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(empireSettingsProvider);
+    final primary = settings.palette == ImperialPalette.crimson
+        ? DominiumTheme.red
+        : DominiumTheme.royalBlue;
+
     return MaterialApp(
       title: 'DOMINIUM',
       debugShowCheckedModeBanner: false,
-      theme: DominiumTheme.theme,
+      theme: DominiumTheme.theme(primary: primary),
       home: const SplashGate(),
     );
   }
@@ -111,14 +119,14 @@ class RadialPulsePainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-class EmpireShell extends StatefulWidget {
+class EmpireShell extends ConsumerStatefulWidget {
   const EmpireShell({super.key});
 
   @override
-  State<EmpireShell> createState() => _EmpireShellState();
+  ConsumerState<EmpireShell> createState() => _EmpireShellState();
 }
 
-class _EmpireShellState extends State<EmpireShell> {
+class _EmpireShellState extends ConsumerState<EmpireShell> {
   int index = 0;
 
   final pages = const [
@@ -130,16 +138,18 @@ class _EmpireShellState extends State<EmpireShell> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(empireSettingsProvider);
+
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (v) => setState(() => index = v),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.account_balance), label: 'Trono'),
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'Tesouro'),
-          NavigationDestination(icon: Icon(Icons.gavel), label: 'Ordens'),
-          NavigationDestination(icon: Icon(Icons.flag), label: 'Campanhas'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.account_balance), label: settings.throneLabel),
+          NavigationDestination(icon: const Icon(Icons.account_balance_wallet), label: settings.treasuryLabel),
+          NavigationDestination(icon: const Icon(Icons.gavel), label: settings.ordersLabel),
+          NavigationDestination(icon: const Icon(Icons.flag), label: settings.campaignsLabel),
         ],
       ),
     );

@@ -2,10 +2,19 @@
 
 DOMINIUM é um aplicativo Flutter offline-first para soberania pessoal, dividido em quatro domínios:
 
-- **Trono**: estado geral do império, títulos simbólicos e visão consolidada.
+- **Trono**: estado geral do império, títulos simbólicos, conselheira imperial e visão consolidada.
 - **Tesouro Imperial**: registro de receitas e resumo financeiro em moeda brasileira.
 - **Ordens**: tarefas no formato de ordens imperiais com histórico sem culpa.
 - **Campanhas**: projetos longos com progresso, marcos e status de guerra.
+
+## Diferenciais desta versão
+
+- Personalização imperial no Trono:
+  - renomear domínios da navegação inferior;
+  - alternar paleta entre Vermelho Imperial e Azul Real;
+  - persistência dessa configuração em Hive.
+- Conselheira Imperial com recomendações automáticas baseadas em pendências, execução de ordens e estagnação de campanhas.
+- Ritual diário e títulos honoríficos com linguagem adulta e tom de comando.
 
 ## Stack
 

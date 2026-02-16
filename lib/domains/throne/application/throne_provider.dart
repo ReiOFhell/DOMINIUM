@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
 import 'package:dominium/domains/treasury/application/treasury_providers.dart';
@@ -24,5 +22,7 @@ final imperialPhraseProvider = Provider<String>((_) {
     'Disciplina silenciosa constrói dinastias',
     'Sem culpa, apenas registro e avanço',
   ];
-  return phrases[Random().nextInt(phrases.length)];
+
+  final day = DateTime.now().day;
+  return phrases[day % phrases.length];
 });

@@ -3,7 +3,10 @@ import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
 import 'package:dominium/domains/rituals/application/ritual_provider.dart';
+import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
+import 'package:dominium/domains/throne/application/imperial_advisor_provider.dart';
 import 'package:dominium/domains/throne/application/throne_provider.dart';
+import 'package:dominium/domains/throne/data/empire_settings.dart';
 import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +33,7 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
   Widget build(BuildContext context) {
     final title = ref.watch(throneTitleProvider);
     final phrase = ref.watch(imperialPhraseProvider);
+    final advice = ref.watch(imperialAdvisorProvider);
     final treasury = ref.watch(treasuryEntriesProvider);
     final campaigns = ref.watch(campaignsProvider);
     final orders = ref.watch(ordersProvider);
@@ -40,7 +44,16 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Trono')),
+      appBar: AppBar(
+        title: const Text('Trono'),
+        actions: [
+          IconButton(
+            onPressed: () => _openImperialConfig(context),
+            icon: const Icon(Icons.tune),
+            tooltip: 'Arquitetura do Império',
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -48,7 +61,8 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Lord $title', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                Text('Lord Inkosi, título atual: $title',
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 Text(phrase, style: const TextStyle(color: Colors.white70)),
               ],
@@ -75,12 +89,34 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
                   titlesData: const FlTitlesData(show: false),
                   borderData: FlBorderData(show: false),
                   barGroups: [
-                    BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: received / 100, color: DominiumTheme.gold)]),
-                    BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: doneOrders.toDouble(), color: Colors.white70)]),
-                    BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: campaigns.length.toDouble(), color: DominiumTheme.red)]),
+                    BarChartGroupData(
+                        x: 0,
+                        barRods: [BarChartRodData(toY: received / 100, color: DominiumTheme.gold)]),
+                    BarChartGroupData(
+                        x: 1,
+                        barRods: [BarChartRodData(toY: doneOrders.toDouble(), color: Colors.white70)]),
+                    BarChartGroupData(
+                        x: 2,
+                        barRods: [BarChartRodData(toY: campaigns.length.toDouble(), color: DominiumTheme.red)]),
                   ],
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Conselheira Imperial', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...advice.map(
+                  (insight) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text('• $insight'),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -124,6 +160,76 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openImperialConfig(BuildContext context) async {
+    final settings = ref.read(empireSettingsProvider);
+    final throne = TextEditingController(text: settings.throneLabel);
+    final treasury = TextEditingController(text: settings.treasuryLabel);
+    final orders = TextEditingController(text: settings.ordersLabel);
+    final campaigns = TextEditingController(text: settings.campaignsLabel);
+    ImperialPalette palette = settings.palette;
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Arquitetura Imperial'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(controller: throne, decoration: const InputDecoration(labelText: 'Nome do Trono')),
+                const SizedBox(height: 8),
+                TextField(controller: treasury, decoration: const InputDecoration(labelText: 'Nome do Tesouro')),
+                const SizedBox(height: 8),
+                TextField(controller: orders, decoration: const InputDecoration(labelText: 'Nome das Ordens')),
+                const SizedBox(height: 8),
+                TextField(
+                    controller: campaigns,
+                    decoration: const InputDecoration(labelText: 'Nome das Campanhas')),
+                const SizedBox(height: 12),
+                DropdownButton<ImperialPalette>(
+                  value: palette,
+                  isExpanded: true,
+                  onChanged: (v) => setState(() => palette = v ?? ImperialPalette.crimson),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ImperialPalette.crimson,
+                      child: Text('Vermelho Imperial'),
+                    ),
+                    DropdownMenuItem(
+                      value: ImperialPalette.royal,
+                      child: Text('Azul Real'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () async {
+                await ref.read(empireSettingsProvider.notifier).update(
+                      settings.copyWith(
+                        throneLabel: throne.text.trim().isEmpty ? settings.throneLabel : throne.text.trim(),
+                        treasuryLabel:
+                            treasury.text.trim().isEmpty ? settings.treasuryLabel : treasury.text.trim(),
+                        ordersLabel: orders.text.trim().isEmpty ? settings.ordersLabel : orders.text.trim(),
+                        campaignsLabel: campaigns.text.trim().isEmpty
+                            ? settings.campaignsLabel
+                            : campaigns.text.trim(),
+                        palette: palette,
+                      ),
+                    );
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Aplicar Decreto'),
+            ),
+          ],
+        ),
       ),
     );
   }

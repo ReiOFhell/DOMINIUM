@@ -3,14 +3,16 @@ import 'package:flutter/material.dart';
 class DominiumTheme {
   static const black = Color(0xFF000000);
   static const red = Color(0xFF6A0912);
+  static const royalBlue = Color(0xFF12264A);
   static const gold = Color(0xFFB2873F);
 
-  static ThemeData get theme {
+  static ThemeData theme({Color? primary}) {
+    final accent = primary ?? red;
     final base = ThemeData.dark(useMaterial3: true);
     return base.copyWith(
       scaffoldBackgroundColor: black,
       colorScheme: base.colorScheme.copyWith(
-        primary: red,
+        primary: accent,
         secondary: gold,
         surface: const Color(0xFF121212),
       ),
@@ -22,15 +24,15 @@ class DominiumTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: const Color(0xFF0A0A0A),
-        indicatorColor: red.withOpacity(0.4),
+        indicatorColor: accent.withOpacity(0.4),
       ),
       inputDecorationTheme: const InputDecorationTheme(
         border: OutlineInputBorder(),
         filled: true,
         fillColor: Color(0x22000000),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: red,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: accent,
         foregroundColor: Colors.white,
       ),
     );
