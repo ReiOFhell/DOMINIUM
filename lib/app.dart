@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:dominium/core/theme/dominium_theme.dart';
+import 'package:dominium/domains/analytics/presentation/analytics_screen.dart';
 import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
+import 'package:dominium/domains/debts/presentation/debts_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/data/empire_settings.dart';
@@ -132,8 +134,10 @@ class _EmpireShellState extends ConsumerState<EmpireShell> {
   final pages = const [
     ThroneScreen(),
     TreasuryScreen(),
+    DebtsScreen(),
     OrdersScreen(),
     CampaignsScreen(),
+    AnalyticsScreen(),
   ];
 
   @override
@@ -148,8 +152,10 @@ class _EmpireShellState extends ConsumerState<EmpireShell> {
         destinations: [
           NavigationDestination(icon: const Icon(Icons.account_balance), label: settings.throneLabel),
           NavigationDestination(icon: const Icon(Icons.account_balance_wallet), label: settings.treasuryLabel),
+          const NavigationDestination(icon: Icon(Icons.shield), label: 'Dívidas'),
           NavigationDestination(icon: const Icon(Icons.gavel), label: settings.ordersLabel),
           NavigationDestination(icon: const Icon(Icons.flag), label: settings.campaignsLabel),
+          const NavigationDestination(icon: Icon(Icons.auto_graph), label: 'Oráculo'),
         ],
       ),
     );

@@ -1,53 +1,55 @@
-# DOMINIUM
+# IMPERIUM / DOMINIUM
 
-DOMINIUM é um aplicativo Flutter offline-first para soberania pessoal, dividido em quatro domínios:
+Sistema de soberania pessoal offline-first com arquitetura modular em Flutter.
 
-- **Trono**: estado geral do império, títulos simbólicos, conselheira imperial e visão consolidada.
-- **Tesouro Imperial**: registro de receitas e resumo financeiro em moeda brasileira.
-- **Ordens**: tarefas no formato de ordens imperiais com histórico sem culpa.
-- **Campanhas**: projetos longos com progresso, marcos e status de guerra.
+## Núcleo atual
 
-## Diferenciais desta versão
+- **Trono**: estado do império, títulos, conselheira e ritual diário.
+- **Tesouro**: receitas, histórico e leitura de saldo.
+- **Trono das Dívidas**: gestão robusta de cartão (compras, faturas, pagamentos, projeção e plano de quitação).
+- **Ordens**: execução de decretos diários.
+- **Campanhas**: guerras de longo prazo.
+- **Oráculo Financeiro**: gráficos, auditoria e calculadora de possibilidades.
 
-- Personalização imperial no Trono:
-  - renomear domínios da navegação inferior;
-  - alternar paleta entre Vermelho Imperial e Azul Real;
-  - persistência dessa configuração em Hive.
-- Conselheira Imperial com recomendações automáticas baseadas em pendências, execução de ordens e estagnação de campanhas.
-- Ritual diário e títulos honoríficos com linguagem adulta e tom de comando.
+## Estética imperial “cristal líquido vermelho”
+
+- Glassmorphism sombrio com núcleo rubro interno.
+- Camadas translúcidas com ruído leve, reflexo e profundidade.
+- Estados emocionais visuais: calmo, alerta, crítico e vitória.
+
+## Recursos de dívida implementados
+
+- Modelo completo de cartão com:
+  - limite, banco, fechamento/vencimento, juros e encargos base;
+  - compras à vista/parceladas com categorias, tags e local;
+  - faturas por ciclo com mínimo/pago/em aberto;
+  - pagamentos por tipo e origem;
+  - estado da dívida (em dia, atenção, atraso, rotativo, renegociada, quitada).
+- Projeção mensal de fatura (parcelas vivas, total previsto e limite comprometido futuro).
+- Alertas inteligentes de fechamento, risco de rotativo e comprometimento de limite.
+- Modo Guerra com simulação de plano de quitação por orçamento mensal.
+
+## Recursos analíticos implementados
+
+- Fluxo mensal (ganhos, gastos, saldo).
+- Composição de dívida por cartão (pizza).
+- Modo Auditor (detecção de picos de gasto).
+- Ritual de Fechamento do Mês (checklist operacional).
+- Calculadora de Possibilidades com cenários:
+  - Conservador
+  - Realista
+  - Agressivo
 
 ## Stack
 
-- Flutter (Dart)
-- Riverpod para estado
-- Hive para persistência local offline
-- intl para formatação monetária
-- fl_chart para gráficos discretos
+- Flutter + Riverpod
+- Hive (offline-first)
+- intl
+- fl_chart
 
-## Estrutura
-
-```text
-lib/
-  core/
-  domains/
-    throne/
-    treasury/
-    orders/
-    campaigns/
-    rituals/
-```
-
-## Como executar
-
-1. Instale Flutter SDK.
-2. Rode:
+## Execução
 
 ```bash
 flutter pub get
 flutter run
 ```
-
-## Observações
-
-- Este MVP já contempla biometria em `core/services/imperial_services.dart` e mantém placeholders para notificações ritualísticas.
-- O design usa fundo OLED preto, vermelho imperial e detalhes dourados com cards translúcidos.
