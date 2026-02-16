@@ -83,18 +83,18 @@ class WarCoffersController extends StateNotifier<List<WarCoffer>> {
     var total = 0.0;
     for (final type in WarCofferType.values) {
       final value = percentages[type] ?? 0;
-      final safe = value < 0 ? 0 : value;
+      final safe = value < 0 ? 0.0 : value.toDouble();
       sanitized[type] = safe;
       total += safe;
     }
 
     if (total <= 0) {
       sanitized
-        ..[WarCofferType.essencial] = 40
-        ..[WarCofferType.divida] = 30
-        ..[WarCofferType.reserva] = 20
-        ..[WarCofferType.projetos] = 10;
-      total = 100;
+        ..[WarCofferType.essencial] = 40.0
+        ..[WarCofferType.divida] = 30.0
+        ..[WarCofferType.reserva] = 20.0
+        ..[WarCofferType.projetos] = 10.0;
+      total = 100.0;
     }
 
     final updated = [
