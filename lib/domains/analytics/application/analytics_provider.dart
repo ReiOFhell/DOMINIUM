@@ -5,6 +5,35 @@ import 'package:dominium/domains/debts/application/debts_provider.dart';
 import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+
+enum AnomalyType { padrao, riscoGradual, autodestrutivo }
+
+enum AnomalyAction { abrirDividasCartao, iniciarContencao, abrirOraculo }
+
+class AnomalyInsight {
+  const AnomalyInsight({
+    required this.type,
+    required this.title,
+    required this.description,
+    required this.score,
+    required this.action,
+    required this.actionLabel,
+  });
+
+  final AnomalyType type;
+  final String title;
+  final String description;
+  final int score;
+  final AnomalyAction action;
+  final String actionLabel;
+
+  String get typeLabel => switch (type) {
+        AnomalyType.padrao => 'Padrão',
+        AnomalyType.riscoGradual => 'Risco gradual',
+        AnomalyType.autodestrutivo => 'Autodestrutivo',
+      };
+}
+
 class FlowPoint {
   FlowPoint(this.month, this.income, this.expense, this.balance);
 
@@ -100,12 +129,13 @@ final possibilityScenariosProvider = Provider<List<PossibilityResult>>((ref) {
 });
 
 
-final anomalyAlertsProvider = Provider<List<String>>((ref) {
+
+final anomalyInsightsProvider = Provider<List<AnomalyInsight>>((ref) {
   final treasury = ref.watch(treasuryEntriesProvider);
   final debts = ref.watch(debtsProvider);
   final now = DateTime.now();
 
-  final alerts = <String>[];
+  final anomalies = <AnomalyInsight>[];
 
   final recentPurchases = debts
       .expand((c) => c.purchases)
@@ -122,8 +152,16 @@ final anomalyAlertsProvider = Provider<List<String>>((ref) {
   if (previousPurchases > 0) {
     final change = ((recentPurchases - previousPurchases) / previousPurchases) * 100;
     if (change >= 20) {
-      alerts.add(
-        'Seu padrão mudou. Seus gastos aumentaram ${change.toStringAsFixed(0)}% nos últimos 12 dias.',
+      final score = change.clamp(20, 100).round();
+      anomalies.add(
+        AnomalyInsight(
+          type: AnomalyType.padrao,
+          title: 'Mudança abrupta de padrão de compra',
+          description: 'Gastos cresceram ${change.toStringAsFixed(0)}% nos últimos 12 dias.',
+          score: score,
+          action: AnomalyAction.abrirOraculo,
+          actionLabel: 'Abrir Oráculo',
+        ),
       );
     }
   }
@@ -132,7 +170,17 @@ final anomalyAlertsProvider = Provider<List<String>>((ref) {
       ? 0.0
       : debts.fold<double>(0, (s, c) => s + c.committedLimitNow) / debts.length;
   if (avgCommit >= 0.78) {
-    alerts.add('Risco gradual detectado: comprometimento médio de limite acima de 78%.');
+    final score = (avgCommit * 100).clamp(0, 100).round();
+    anomalies.add(
+      AnomalyInsight(
+        type: AnomalyType.riscoGradual,
+        title: 'Comprometimento médio elevado',
+        description: 'Limite médio comprometido em ${(avgCommit * 100).toStringAsFixed(0)}%.',
+        score: score,
+        action: AnomalyAction.abrirDividasCartao,
+        actionLabel: 'Abrir Dívidas',
+      ),
+    );
   }
 
   final impulseBursts = debts
@@ -148,7 +196,17 @@ final anomalyAlertsProvider = Provider<List<String>>((ref) {
       .length;
 
   if (impulseBursts > 0) {
-    alerts.add('Comportamento autodestrutivo identificado: sequência de compras impulsivas em curto intervalo.');
+    final score = (70 + impulseBursts * 10).clamp(0, 100).round();
+    anomalies.add(
+      AnomalyInsight(
+        type: AnomalyType.autodestrutivo,
+        title: 'Explosão de compras impulsivas',
+        description: 'Detectadas $impulseBursts janela(s) com 4+ compras no mesmo dia.',
+        score: score,
+        action: AnomalyAction.iniciarContencao,
+        actionLabel: 'Iniciar contenção',
+      ),
+    );
   }
 
   final recentIncome = treasury
@@ -156,12 +214,38 @@ final anomalyAlertsProvider = Provider<List<String>>((ref) {
       .fold<double>(0, (s, t) => s + t.amount);
   final recentOpenDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
   if (recentIncome > 0 && recentOpenDebt > recentIncome * 1.2) {
-    alerts.add('Mudança perigosa: dívida aberta acima de 120% da renda recente do ciclo.');
+    final overload = (recentOpenDebt / recentIncome) * 100;
+    anomalies.add(
+      AnomalyInsight(
+        type: AnomalyType.riscoGradual,
+        title: 'Dívida aberta acima da renda recente',
+        description: 'Dívida em ${overload.toStringAsFixed(0)}% da renda dos últimos 30 dias.',
+        score: overload.clamp(0, 100).round(),
+        action: AnomalyAction.abrirDividasCartao,
+        actionLabel: 'Ver dívida',
+      ),
+    );
   }
 
-  if (alerts.isEmpty) {
-    alerts.add('Sem anomalias críticas no momento. O padrão financeiro está sob controle.');
+  anomalies.sort((a, b) => b.score.compareTo(a.score));
+  return anomalies;
+});
+
+final anomalyGroupedProvider = Provider<Map<AnomalyType, List<AnomalyInsight>>>((ref) {
+  final grouped = <AnomalyType, List<AnomalyInsight>>{};
+  for (final anomaly in ref.watch(anomalyInsightsProvider)) {
+    grouped.putIfAbsent(anomaly.type, () => []).add(anomaly);
+  }
+  return grouped;
+});
+
+final anomalyAlertsProvider = Provider<List<String>>((ref) {
+  final anomalies = ref.watch(anomalyInsightsProvider);
+  if (anomalies.isEmpty) {
+    return ['Sem anomalias críticas no momento. O padrão financeiro está sob controle.'];
   }
 
-  return alerts;
+  return anomalies
+      .map((a) => '[${a.typeLabel} • ${a.score}/100] ${a.description}')
+      .toList();
 });

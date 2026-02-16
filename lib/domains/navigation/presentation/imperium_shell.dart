@@ -3,6 +3,7 @@ import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/analytics/application/analytics_provider.dart';
 import 'package:dominium/domains/analytics/presentation/analytics_screen.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
+import 'package:dominium/domains/campaigns/data/campaign.dart';
 import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
 import 'package:dominium/domains/codex/presentation/codex_screen.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
@@ -23,6 +24,7 @@ import 'package:dominium/domains/treasury/presentation/treasury_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 class ImperiumShell extends ConsumerStatefulWidget {
   const ImperiumShell({super.key});
@@ -70,7 +72,8 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
     final debts = ref.watch(debtsProvider);
     final campaigns = ref.watch(campaignsProvider);
     final title = ref.watch(currentImperialTitleProvider);
-    final anomalies = ref.watch(anomalyAlertsProvider);
+    final anomalyGroups = ref.watch(anomalyGroupedProvider);
+    final anomalies = ref.watch(anomalyInsightsProvider);
     final directDebt = ref.watch(totalDirectDebtsProvider);
     final realBalance = ref.watch(accountsProvider).totalBalance;
     final warBudget = ref.watch(warBudgetSummaryProvider);
@@ -113,16 +116,47 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
         ),
         const SizedBox(height: 12),
         GlassCard(
-          mood: anomalies.first.startsWith('Sem anomalias') ? ImperialMood.calmo : ImperialMood.alerta,
+          mood: anomalies.isEmpty ? ImperialMood.calmo : ImperialMood.alerta,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Sistema de Detecção de Anomalias', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Sistema de Detecção de Anomalias v2', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              ...anomalies.map((a) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text('• $a'),
-                  )),
+              if (anomalies.isEmpty)
+                const Text('Sem anomalias críticas no momento. O padrão financeiro está sob controle.')
+              else
+                ...AnomalyType.values.where((t) => (anomalyGroups[t] ?? const []).isNotEmpty).map(
+                  (type) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('• ${_anomalyTypeLabel(type)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        ...(anomalyGroups[type] ?? const []).map(
+                          (anomaly) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(child: Text('${anomaly.title} (${anomaly.score}/100)')),
+                                    FilledButton.tonal(
+                                      onPressed: () => _executeAnomalyAction(context, anomaly),
+                                      child: Text(anomaly.actionLabel),
+                                    ),
+                                  ],
+                                ),
+                                Text(anomaly.description, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -170,6 +204,48 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
         ),
       ],
     );
+  }
+
+  String _anomalyTypeLabel(AnomalyType type) => switch (type) {
+        AnomalyType.padrao => 'Padrão',
+        AnomalyType.riscoGradual => 'Risco gradual',
+        AnomalyType.autodestrutivo => 'Autodestrutivo',
+      };
+
+  Future<void> _executeAnomalyAction(BuildContext context, AnomalyInsight anomaly) async {
+    switch (anomaly.action) {
+      case AnomalyAction.abrirDividasCartao:
+        await _open(context, const DebtsScreen());
+        return;
+      case AnomalyAction.abrirOraculo:
+        await _open(context, const AnalyticsScreen());
+        return;
+      case AnomalyAction.iniciarContencao:
+        await ref.read(campaignsProvider.notifier).save(
+              Campaign(
+                id: const Uuid().v4(),
+                name: 'Contenção Automática de Dívida',
+                description: 'Campanha criada a partir de anomalia autodestrutiva.',
+                startDate: DateTime.now(),
+                progress: 0,
+                investedValue: 0,
+                status: CampaignStatus.estagnada,
+                milestones: const [
+                  'Congelar compras não essenciais por 7 dias',
+                  'Pagar acima do mínimo nas próximas faturas',
+                  'Revisar padrão de gastos em 72h',
+                ],
+                orderIds: const [],
+              ),
+            );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Campanha de contenção iniciada.')),
+          );
+          await _open(context, const CampaignsScreen());
+        }
+        return;
+    }
   }
 
   Widget _financePage(BuildContext context) {
