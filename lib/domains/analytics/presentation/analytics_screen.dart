@@ -2,6 +2,8 @@ import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/analytics/application/analytics_provider.dart';
 import 'package:dominium/domains/analytics/data/possibility_result.dart';
+import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -195,7 +197,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           TextField(controller: margin, decoration: const InputDecoration(labelText: 'Margem segura %')),
           TextField(controller: debtTarget, decoration: const InputDecoration(labelText: 'Dívida pretendida')),
           TextField(controller: installments, decoration: const InputDecoration(labelText: 'Parcelas')),
-          TextField(controller: interest, decoration: const InputDecoration(labelText: 'Juros %')), 
+          TextField(controller: interest, decoration: const InputDecoration(labelText: 'Juros %')),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
@@ -210,6 +212,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                       installments: _parse(installments.text).toInt(),
                       interest: _parse(interest.text),
                     );
+                ref.read(codexProvider.notifier).registerUsage(ImperialSystem.calculadora);
               },
               child: const Text('Julgar aquisição'),
             ),

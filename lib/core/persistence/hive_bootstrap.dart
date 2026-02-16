@@ -6,6 +6,7 @@ class HiveBootstrap {
   static const campaignsBox = 'campaigns';
   static const ritualsBox = 'rituals';
   static const debtsBox = 'debts';
+  static const codexBox = 'codex';
   static const settingsBox = 'settings';
 
   static Future<void> initialize() async {
@@ -16,6 +17,7 @@ class HiveBootstrap {
       Hive.openBox<Map>(campaignsBox),
       Hive.openBox<Map>(ritualsBox),
       Hive.openBox<Map>(debtsBox),
+      Hive.openBox<Map>(codexBox),
       Hive.openBox<Map>(settingsBox),
     ]);
   }

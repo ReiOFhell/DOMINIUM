@@ -1,6 +1,8 @@
 import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
+import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
 import 'package:dominium/domains/rituals/application/ritual_provider.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
@@ -22,6 +24,22 @@ class ThroneScreen extends ConsumerStatefulWidget {
 
 class _ThroneScreenState extends ConsumerState<ThroneScreen> {
   final reflection = TextEditingController();
+  bool _revelationChecked = false;
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revelationChecked) return;
+    _revelationChecked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final pending = ref.read(pendingRevelationsProvider);
+      if (pending.isEmpty || !mounted) return;
+      final system = pending.first;
+      await _showRevelation(system);
+      await ref.read(codexProvider.notifier).reveal(system);
+    });
+  }
 
   @override
   void dispose() {
@@ -34,6 +52,7 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
     final title = ref.watch(throneTitleProvider);
     final phrase = ref.watch(imperialPhraseProvider);
     final advice = ref.watch(imperialAdvisorProvider);
+    final interventions = ref.watch(mentorInterventionsProvider);
     final treasury = ref.watch(treasuryEntriesProvider);
     final campaigns = ref.watch(campaignsProvider);
     final orders = ref.watch(ordersProvider);
@@ -68,6 +87,34 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 12),
+          if (interventions.isNotEmpty)
+            GlassCard(
+              mood: ImperialMood.alerta,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Mentor Invisível', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...interventions.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(m.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Text(m.message),
+                            const SizedBox(height: 4),
+                            TextButton(
+                              onPressed: () => ref.read(codexProvider.notifier).registerUsage(m.system),
+                              child: Text(m.action),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           GlassCard(
             child: Row(
@@ -230,6 +277,68 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+
+  Future<void> _showRevelation(ImperialSystem system) async {
+    final data = switch (system) {
+      ImperialSystem.ordens => (
+          title: 'Nova estrutura desbloqueada: Ordens Imperiais',
+          why: 'Existe para transformar intenção em execução consistente.',
+          when: 'Use quando houver metas sem cadência diária.',
+          how: 'Crie 1 ordem de alto impacto e acompanhe execução por 7 dias.',
+          risk: 'Ignorar mantém avanço sem ritmo e reduz crescimento.'
+        ),
+      ImperialSystem.campanhas => (
+          title: 'Nova estrutura desbloqueada: Campanhas',
+          why: 'Existe para enfrentar ameaças complexas em ciclos longos.',
+          when: 'Use ao lidar com dívida crescente ou metas estruturais.',
+          how: 'Defina objetivo, marcos e ordens vinculadas.',
+          risk: 'Ignorar amplia improviso e reduz capacidade de reação.'
+        ),
+      ImperialSystem.dividas => (
+          title: 'Nova estrutura desbloqueada: Trono das Dívidas',
+          why: 'Existe para conter juros e recuperar soberania financeira.',
+          when: 'Use sempre que houver faturas ou parcelas vivas.',
+          how: 'Registre compras, simule ciclos e emita decretos de pagamento.',
+          risk: 'Ignorar favorece rotativo e acelera perda de caixa.'
+        ),
+      _ => (
+          title: 'Nova estrutura imperial detectada',
+          why: 'Uma nova camada de comando foi aberta.',
+          when: 'Use quando o mentor sinalizar relevância.',
+          how: 'Inicie o modo guiado no Codex Imperial.',
+          risk: 'Ignorar reduz clareza estratégica.'
+        ),
+    };
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: Text(data.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Por que existe: ${data.why}'),
+            const SizedBox(height: 6),
+            Text('Quando usar: ${data.when}'),
+            const SizedBox(height: 6),
+            Text('Como usar: ${data.how}'),
+            const SizedBox(height: 6),
+            Text('Se ignorar: ${data.risk}'),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Compreendi e avançar'),
+          ),
+        ],
       ),
     );
   }

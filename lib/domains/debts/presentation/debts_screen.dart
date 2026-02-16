@@ -1,5 +1,7 @@
 import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/core/widgets/glass_card.dart';
+import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/debts/application/debts_provider.dart';
 import 'package:dominium/domains/debts/data/debt_card.dart';
 import 'package:flutter/material.dart';
@@ -216,6 +218,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                     interest: double.tryParse(juros.text.replaceAll(',', '.')) ?? 0,
                     iof: double.tryParse(iof.text.replaceAll(',', '.')) ?? 0,
                   );
+              await ref.read(codexProvider.notifier).registerUsage(ImperialSystem.dividas);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Salvar'),
@@ -283,6 +286,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                       store: store.text.trim(),
                       tags: tags.text.split(';').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
                     );
+                await ref.read(codexProvider.notifier).registerUsage(ImperialSystem.dividas);
                 if (context.mounted) Navigator.pop(context);
               },
               child: const Text('Registrar'),

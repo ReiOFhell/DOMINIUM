@@ -1,4 +1,6 @@
 import 'package:dominium/core/widgets/glass_card.dart';
+import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
 import 'package:dominium/domains/orders/data/order_item.dart';
 import 'package:flutter/material.dart';
@@ -112,6 +114,7 @@ class OrdersScreen extends ConsumerWidget {
                         executed: false,
                       ),
                     );
+                await ref.read(codexProvider.notifier).registerUsage(ImperialSystem.ordens);
                 if (context.mounted) Navigator.pop(context);
               },
               child: const Text('Emitir'),

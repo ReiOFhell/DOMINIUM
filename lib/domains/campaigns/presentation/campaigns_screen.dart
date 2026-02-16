@@ -1,4 +1,6 @@
 import 'package:dominium/core/widgets/glass_card.dart';
+import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/codex/data/codex_entry.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/campaigns/data/campaign.dart';
 import 'package:flutter/material.dart';
@@ -130,6 +132,7 @@ class CampaignsScreen extends ConsumerWidget {
                         orderIds: const [],
                       ),
                     );
+                await ref.read(codexProvider.notifier).registerUsage(ImperialSystem.campanhas);
                 if (context.mounted) Navigator.pop(context);
               },
               child: const Text('Salvar'),

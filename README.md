@@ -10,6 +10,20 @@ Sistema de soberania pessoal offline-first com arquitetura modular em Flutter.
 - **Ordens**: execução de decretos diários.
 - **Campanhas**: guerras de longo prazo.
 - **Oráculo Financeiro**: gráficos, auditoria e calculadora de possibilidades.
+- **Codex Imperial**: biblioteca viva de sistemas descobertos e domínio de uso.
+
+## Princípio de ensino do próprio sistema
+
+O app opera com aprendizagem progressiva e contextual:
+
+- Revela funcionalidades quando elas se tornam necessárias.
+- Explica: o que é, por que existe, quando usar, como usar e o custo de ignorar.
+- Registra estado de domínio por módulo:
+  - Não descoberto
+  - Descoberto, não usado
+  - Usado superficialmente
+  - Dominado
+- Ativa o **Mentor Invisível** para intervenções estratégicas sem sobrecarga.
 
 ## Estética imperial “cristal líquido vermelho”
 

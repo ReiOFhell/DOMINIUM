@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/domains/analytics/presentation/analytics_screen.dart';
 import 'package:dominium/domains/campaigns/presentation/campaigns_screen.dart';
+import 'package:dominium/domains/codex/presentation/codex_screen.dart';
 import 'package:dominium/domains/debts/presentation/debts_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
@@ -138,6 +139,7 @@ class _EmpireShellState extends ConsumerState<EmpireShell> {
     OrdersScreen(),
     CampaignsScreen(),
     AnalyticsScreen(),
+    CodexScreen(),
   ];
 
   @override
@@ -156,6 +158,7 @@ class _EmpireShellState extends ConsumerState<EmpireShell> {
           NavigationDestination(icon: const Icon(Icons.gavel), label: settings.ordersLabel),
           NavigationDestination(icon: const Icon(Icons.flag), label: settings.campaignsLabel),
           const NavigationDestination(icon: Icon(Icons.auto_graph), label: 'Oráculo'),
+          const NavigationDestination(icon: Icon(Icons.menu_book), label: 'Codex'),
         ],
       ),
     );
