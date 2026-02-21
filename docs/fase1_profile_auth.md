@@ -265,3 +265,96 @@ Para vincular na nuvem, você deve criar pelo menos:
 
 Sem esse backend, o app pode continuar offline-first local (Hive), mas não terá vínculo cloud multi-dispositivo seguro.
 
+---
+
+## 12) Onboarding Supabase para iniciar backup/sync na nuvem (passo a passo iniciante)
+
+Se você **já tem projeto no Supabase**, ótimo. Para eu prosseguir com o código, preciso destes dados e confirmações.
+
+### 12.1 Dados que preciso que você me passe do Supabase
+
+1. **Project URL** (`https://<project-ref>.supabase.co`).
+2. **Anon Key** (chave pública do client).
+3. **Região do projeto** (ex.: `sa-east-1`) para diagnóstico de latência.
+4. **Status do Auth**:
+   - email/senha habilitado?
+   - magic link habilitado?
+5. **Schema atual** da tabela de perfil (se já existe):
+   - nome real da tabela,
+   - colunas existentes,
+   - tipos e constraints.
+6. **Políticas RLS** já criadas (copiar e colar SQL das policies).
+7. **Se há tabela de sync/checkpoints** já criada.
+8. **Quais ambientes existem**: dev/staging/prod.
+
+> Segurança: nunca enviar `service_role key` no app cliente. Para implementação mobile, normalmente só usamos URL + anon key no client.
+
+### 12.2 O que você precisa fazer antes do código (pré-requisitos)
+
+#### Passo 1 — Confirmar o ambiente
+
+- Definir se vamos começar em **dev**.
+- Criar arquivo de variáveis de ambiente no app (ex.: `.env`) para URL e anon key.
+- Garantir que chaves sensíveis não estejam commitadas.
+
+#### Passo 2 — Habilitar autenticação
+
+No Supabase Dashboard:
+
+1. Auth → Providers → habilitar **Email**.
+2. Escolher estratégia inicial:
+   - email/senha, ou
+   - magic link.
+3. Configurar templates de email (se usar magic link).
+
+#### Passo 3 — Criar tabela de perfil por usuário
+
+- Executar SQL de criação da `imperium_profiles` (ver seção 4.2).
+- Garantir índice único por `owner_id`.
+
+#### Passo 4 — Ativar segurança por usuário (RLS)
+
+- Habilitar RLS na tabela.
+- Criar policies de `select/insert/update` com `owner_id = auth.uid()`.
+- Testar com usuário A e B para validar isolamento.
+
+#### Passo 5 — Testar manualmente no Dashboard
+
+1. Criar um usuário de teste no Auth.
+2. Logar com esse usuário.
+3. Inserir um perfil com `owner_id` do usuário logado.
+4. Confirmar que outro usuário não consegue ler/editar.
+
+#### Passo 6 — Preparar contrato de sync
+
+- Confirmar metacampos da Fase 0 (`createdAt`, `updatedAt`, `deletedAt`, `version`, `deviceId`).
+- Definir qual domínio entra primeiro no backup (recomendado: `treasury`).
+
+#### Passo 7 — Definir política offline
+
+- App abre com Hive sem bloquear se estiver sem internet.
+- Ao reconectar: tenta sync incremental.
+- Em conflito: LWW + telemetria local (Fase 0).
+
+### 12.3 Ordem de implementação que eu seguirei no código
+
+1. Inicializar cliente Supabase no bootstrap do app.
+2. Criar `SessionStore` local (save/restore/clear).
+3. Implementar `AuthController` (login, logout, restore sessão).
+4. Implementar `ProfileController.getOrCreate(ownerId)`.
+5. Criar `ConnectivityGate` para fallback offline.
+6. Implementar primeiro fluxo de backup de 1 domínio (`treasury`).
+7. Adicionar telemetria de falhas de auth/sync.
+8. Criar testes unitários e de integração mínimos da Fase 1.
+
+### 12.4 Checklist rápido (você marca antes de eu codar)
+
+- [ ] Tenho URL e anon key do projeto Supabase (ambiente dev).
+- [ ] Auth por email habilitado.
+- [ ] Tabela `imperium_profiles` criada.
+- [ ] RLS + policies por `owner_id = auth.uid()` ativas.
+- [ ] Usuário de teste criado e validado.
+- [ ] Decidido domínio inicial do backup (`treasury` recomendado).
+
+Quando você me enviar os itens da seção **12.1**, eu já consigo iniciar a implementação com baixo risco de retrabalho.
+
