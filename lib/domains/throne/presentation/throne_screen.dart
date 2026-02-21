@@ -3,6 +3,8 @@ import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
 import 'package:dominium/domains/codex/application/codex_provider.dart';
 import 'package:dominium/domains/codex/data/codex_entry.dart';
+import 'package:dominium/domains/debts/application/debts_provider.dart';
+import 'package:dominium/domains/debts_direct/application/direct_debts_provider.dart';
 import 'package:dominium/domains/orders/application/orders_provider.dart';
 import 'package:dominium/domains/progression/application/progression_provider.dart';
 import 'package:dominium/domains/rituals/application/ritual_provider.dart';
@@ -58,9 +60,11 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
     final treasury = ref.watch(treasuryEntriesProvider);
     final campaigns = ref.watch(campaignsProvider);
     final orders = ref.watch(ordersProvider);
+    final cardDebts = ref.watch(debtsProvider).fold<double>(0, (s, c) => s + c.openDebt);
+    final directDebts = ref.watch(totalDirectDebtsProvider);
 
     final received = treasury.where((e) => e.received).fold<double>(0, (a, e) => a + e.amount);
-    final pending = treasury.where((e) => !e.received).fold<double>(0, (a, e) => a + e.amount);
+    final totalDebts = cardDebts + directDebts;
     final doneOrders = orders.where((o) => o.executed).length;
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
@@ -123,7 +127,7 @@ class _ThroneScreenState extends ConsumerState<ThroneScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _metric('Ouro total', formatter.format(received), DominiumTheme.gold),
-                _metric('Dívidas', formatter.format(pending), Colors.white),
+                _metric('Dívidas', formatter.format(totalDebts), Colors.white),
                 _metric('Campanhas', campaigns.length.toString(), Colors.white),
               ],
             ),

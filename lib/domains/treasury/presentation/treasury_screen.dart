@@ -33,8 +33,8 @@ class TreasuryScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _money('Recebido', currency.format(received)),
-                  _money('Pendente', currency.format(pending)),
-                  _money('Saldo', currency.format(received - pending), emphasize: true),
+                  _money('A receber', currency.format(pending)),
+                  _money('Saldo', currency.format(received), emphasize: true),
                 ],
               ),
             ),
