@@ -358,3 +358,87 @@ No Supabase Dashboard:
 
 Quando você me enviar os itens da seção **12.1**, eu já consigo iniciar a implementação com baixo risco de retrabalho.
 
+---
+
+## 13) Status real do seu projeto Supabase (com base nos dados enviados)
+
+### 13.1 Dados já recebidos (OK)
+
+- Project ID: `ymgtbhisvxphenatvryf`
+- Dashboard URL: `https://supabase.com/dashboard/project/ymgtbhisvxphenatvryf`
+- Auth: email habilitado
+- Anon key: recebida
+- Região: `americas`
+
+### 13.2 Ajuste importante de URL (para o app)
+
+No app Flutter, a URL correta do client Supabase **não é** a URL de dashboard.
+Use esta URL de API:
+
+- `https://ymgtbhisvxphenatvryf.supabase.co`
+
+### 13.3 Pendências para poder iniciar o código sem bloqueio
+
+1. Criar tabela `imperium_profiles`.
+2. Habilitar RLS nessa tabela.
+3. Criar policies de `select/insert/update` por `owner_id = auth.uid()`.
+4. Criar 1 usuário de teste no Auth (email/senha).
+5. Validar no SQL Editor que o usuário só enxerga o próprio perfil.
+
+### 13.4 SQL pronto para você executar agora (SQL Editor)
+
+```sql
+-- 1) tabela base
+create table if not exists public.imperium_profiles (
+  profile_id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  display_name text not null,
+  identity_visual jsonb not null default '{}'::jsonb,
+  realm_summary jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  version int not null default 1,
+  device_id text not null
+);
+
+-- 2) índice único por usuário
+create unique index if not exists imperium_profiles_owner_uidx
+  on public.imperium_profiles(owner_id);
+
+-- 3) RLS
+alter table public.imperium_profiles enable row level security;
+
+-- 4) policies
+create policy "select own profile"
+  on public.imperium_profiles for select
+  using (owner_id = auth.uid());
+
+create policy "insert own profile"
+  on public.imperium_profiles for insert
+  with check (owner_id = auth.uid());
+
+create policy "update own profile"
+  on public.imperium_profiles for update
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+```
+
+### 13.5 Passo a passo no Dashboard (clique a clique)
+
+1. Abra **SQL Editor** no projeto.
+2. Cole o SQL da seção 13.4 e execute.
+3. Vá em **Authentication > Users** e crie um usuário de teste.
+4. Vá em **Table Editor > imperium_profiles** e confirme que a tabela existe.
+5. Vá em **Authentication > Policies** e confirme 3 policies criadas.
+6. Me envie “feito” + print/lista das policies para eu iniciar a implementação no app.
+
+### 13.6 O que eu codarei imediatamente depois do seu "feito"
+
+1. Configuração de ambiente no app (`SUPABASE_URL` e `SUPABASE_ANON_KEY`).
+2. Bootstrap do cliente Supabase no `main/app`.
+3. `AuthController` (login/logout/restore sessão).
+4. `SessionStore` local para persistência de sessão.
+5. `ProfileController.getOrCreate(ownerId)` usando `imperium_profiles`.
+6. Fallback offline sem bloquear navegação.
+
