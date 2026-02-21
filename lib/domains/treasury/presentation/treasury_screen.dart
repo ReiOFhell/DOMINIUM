@@ -18,7 +18,16 @@ class TreasuryScreen extends ConsumerWidget {
     final pending = entries.where((e) => !e.received).fold<double>(0, (sum, e) => sum + e.amount);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tesouro Imperial')),
+      appBar: AppBar(
+        title: const Text('Tesouro Imperial'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_sync),
+            onPressed: () => ref.read(treasuryEntriesProvider.notifier).syncNow(),
+            tooltip: 'Sincronizar Tesouro',
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showForm(context, ref),
         label: const Text('Nova Receita'),
@@ -179,6 +188,7 @@ class TreasuryScreen extends ConsumerWidget {
                 final parsedAmount = double.tryParse(amount.text.replaceAll(',', '.'));
                 if (title.text.trim().isEmpty || parsedAmount == null) return;
 
+                final now = DateTime.now().toUtc();
                 final entry = TreasuryEntry(
                   id: existing?.id ?? const Uuid().v4(),
                   title: title.text.trim(),
@@ -187,6 +197,11 @@ class TreasuryScreen extends ConsumerWidget {
                   amount: parsedAmount,
                   date: selectedDate,
                   received: received,
+                  createdAt: existing?.createdAt ?? now,
+                  updatedAt: now,
+                  deletedAt: existing?.deletedAt,
+                  version: existing?.version ?? 1,
+                  deviceId: existing?.deviceId ?? 'flutter-client',
                 );
                 await ref.read(treasuryEntriesProvider.notifier).save(entry);
                 if (context.mounted) Navigator.pop(context);

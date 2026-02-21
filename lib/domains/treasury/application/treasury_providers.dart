@@ -1,5 +1,6 @@
 import 'package:dominium/domains/treasury/data/treasury_entry.dart';
 import 'package:dominium/domains/treasury/data/treasury_repository.dart';
+import 'package:dominium/domains/treasury/data/treasury_sync_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum TreasurySort { date, amount, status }
@@ -8,8 +9,15 @@ final treasuryRepositoryProvider = Provider<TreasuryRepository>(
   (_) => TreasuryRepository.fromHive(),
 );
 
+final treasurySyncServiceProvider = Provider<TreasurySyncService>((ref) {
+  return TreasurySyncService(ref.read(treasuryRepositoryProvider));
+});
+
 final treasuryEntriesProvider = StateNotifierProvider<TreasuryController, List<TreasuryEntry>>(
-  (ref) => TreasuryController(ref.read(treasuryRepositoryProvider)),
+  (ref) => TreasuryController(
+    ref.read(treasuryRepositoryProvider),
+    ref.read(treasurySyncServiceProvider),
+  ),
 );
 
 final treasurySearchProvider = StateProvider<String>((_) => '');
@@ -40,17 +48,23 @@ final treasuryFilteredProvider = Provider<List<TreasuryEntry>>((ref) {
 });
 
 class TreasuryController extends StateNotifier<List<TreasuryEntry>> {
-  TreasuryController(this._repository) : super(_repository.all());
+  TreasuryController(this._repository, this._syncService) : super(_repository.all());
 
   final TreasuryRepository _repository;
+  final TreasurySyncService _syncService;
 
   Future<void> save(TreasuryEntry entry) async {
-    await _repository.upsert(entry);
+    await _repository.upsertLocal(entry, deviceId: 'flutter-client');
     state = _repository.all();
   }
 
   Future<void> remove(String id) async {
-    await _repository.delete(id);
+    await _repository.softDeleteLocal(id, deviceId: 'flutter-client');
+    state = _repository.all();
+  }
+
+  Future<void> syncNow() async {
+    await _syncService.sync();
     state = _repository.all();
   }
 }

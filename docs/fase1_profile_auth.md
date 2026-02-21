@@ -533,3 +533,53 @@ where p.owner_id is null;
 - [ ] Garantir 1 linha por usuário (`imperium_profiles_owner_uidx`).
 - [ ] Testar RLS: usuário A não lê perfil do usuário B.
 
+---
+
+## 15) Fase 1.1 — Início do backup cloud real (domínio Treasury)
+
+Implementação inicial do sync no app foi preparada com:
+
+- metacampos de sync no `TreasuryEntry` (`createdAt`, `updatedAt`, `deletedAt`, `version`, `deviceId`);
+- soft delete local (em vez de hard delete);
+- checkpoint de sync por domínio em `settings.sync_state.treasury`;
+- merge de conflito por LWW com desempate por `deviceId`.
+
+### 15.1 SQL da tabela remota esperada (`treasury_entries`)
+
+```sql
+create table if not exists public.treasury_entries (
+  id uuid primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  description text not null default '',
+  location text not null default '',
+  amount numeric not null,
+  date timestamptz not null,
+  received boolean not null default false,
+  photo_path text,
+  created_at timestamptz not null,
+  updated_at timestamptz not null,
+  deleted_at timestamptz,
+  version int not null,
+  device_id text not null
+);
+
+create index if not exists treasury_entries_owner_idx
+  on public.treasury_entries(owner_id);
+
+alter table public.treasury_entries enable row level security;
+
+create policy "treasury select own"
+  on public.treasury_entries for select
+  using (owner_id = auth.uid());
+
+create policy "treasury insert own"
+  on public.treasury_entries for insert
+  with check (owner_id = auth.uid());
+
+create policy "treasury update own"
+  on public.treasury_entries for update
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+```
+
