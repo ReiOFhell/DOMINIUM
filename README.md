@@ -107,3 +107,16 @@ flutter run
 
 - Fase 0 (fundação de sync/cloud): contrato de metadados, sync domains e política de conflito.
 - Documento oficial: `docs/fase0_sync_foundation.md`.
+
+
+### Execução com Supabase (Fase 1 mínima)
+
+Use `--dart-define` para injetar URL/chave pública no app cliente:
+
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://ymgtbhisvxphenatvryf.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=<SUA_ANON_KEY>
+```
+
+Sem essas variáveis, o app continua abrindo em modo local/offline (sem login cloud).

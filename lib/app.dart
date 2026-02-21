@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:dominium/core/cloud/supabase_bootstrap.dart';
 import 'package:dominium/core/theme/dominium_theme.dart';
+import 'package:dominium/domains/auth/presentation/auth_gate.dart';
 import 'package:dominium/domains/navigation/presentation/imperium_shell.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/data/empire_settings.dart';
@@ -48,7 +50,9 @@ class _SplashGateState extends State<SplashGate>
     Future<void>.delayed(const Duration(milliseconds: 2600), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const ImperiumShell()),
+          MaterialPageRoute<void>(
+            builder: (_) => SupabaseBootstrap.isConfigured ? const AuthGate() : const ImperiumShell(),
+          ),
         );
       }
     });
