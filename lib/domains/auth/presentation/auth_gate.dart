@@ -8,23 +8,31 @@ final authStateChangesProvider = StreamProvider<AuthState>((ref) {
   return ref.read(authControllerProvider).authChanges;
 });
 
+final authSessionBootstrapProvider = FutureProvider<void>((ref) async {
+  final controller = ref.read(authControllerProvider);
+  if (controller.currentSession != null) {
+    await controller.ensureProfileForCurrentUser();
+  }
+});
+
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bootstrap = ref.watch(authSessionBootstrapProvider);
     final controller = ref.read(authControllerProvider);
-    final initialSession = controller.currentSession;
 
-    if (initialSession != null) {
-      return const ImperiumShell();
-    }
-
-    ref.watch(authStateChangesProvider);
-    final hasSession = controller.currentSession != null;
-    if (hasSession) return const ImperiumShell();
-
-    return const LoginScreen();
+    return bootstrap.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const LoginScreen(),
+      data: (_) {
+        ref.watch(authStateChangesProvider);
+        final hasSession = controller.currentSession != null;
+        if (hasSession) return const ImperiumShell();
+        return const LoginScreen();
+      },
+    );
   }
 }
 
@@ -66,6 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: _email.text.trim(),
         password: _password.text,
       );
+      ref.invalidate(authSessionBootstrapProvider);
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
