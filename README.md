@@ -119,4 +119,4 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=<SUA_ANON_KEY>
 ```
 
-Sem essas variáveis, o app continua abrindo em modo local/offline (sem login cloud).
+Sem essas variáveis, o app usa a configuração padrão do projeto Supabase já definida no bootstrap e deve abrir com tela de login cloud.
