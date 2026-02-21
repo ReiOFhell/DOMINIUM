@@ -225,3 +225,43 @@ Para haver vínculo real com a nuvem no Dominium, é obrigatório implementar es
 5. Executar sincronização inicial de leitura/escrita respeitando metadados da Fase 0.
 
 Se qualquer etapa acima faltar, a conexão fica parcial (ex.: login sem perfil, ou perfil sem segurança por dono).
+
+---
+
+## 10) GitHub sozinho resolve vínculo em nuvem?
+
+Resposta curta: **não para produção**.
+
+O GitHub é excelente para código, versionamento, CI/CD e até hospedar arquivos estáticos, mas **não substitui** os blocos necessários para o vínculo de dados por usuário no app:
+
+- autenticação de usuário (sessão/token por pessoa),
+- banco com controle de acesso por usuário (RLS/permissões),
+- API segura para leitura/escrita por identidade,
+- gestão de sessão (refresh token, expiração, revogação).
+
+### Quando o GitHub pode ajudar
+
+- versionar scripts SQL/migrações;
+- armazenar documentação de arquitetura;
+- rodar pipeline de deploy/testes;
+- publicar artefatos públicos (não sensíveis).
+
+### Quando ele **não** basta sozinho
+
+- login real de usuários do app;
+- dados privados por usuário com segurança;
+- sincronização transacional por identidade;
+- política de acesso equivalente a `owner_id = auth.uid()`.
+
+## 11) Então o que criar na prática (plataforma)
+
+Para vincular na nuvem, você deve criar pelo menos:
+
+1. **Projeto backend** (ex.: Supabase/Firebase/Appwrite).
+2. **Auth** habilitado (email/senha e/ou magic link).
+3. **Banco/tabelas** de perfil e domínios sincronizáveis.
+4. **Políticas de acesso por usuário** (RLS/regra por owner).
+5. **Chaves/URL de ambiente** no app (com segurança).
+
+Sem esse backend, o app pode continuar offline-first local (Hive), mas não terá vínculo cloud multi-dispositivo seguro.
+
