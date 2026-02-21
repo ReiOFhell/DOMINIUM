@@ -442,3 +442,94 @@ create policy "update own profile"
 5. `ProfileController.getOrCreate(ownerId)` usando `imperium_profiles`.
 6. Fallback offline sem bloquear navegação.
 
+---
+
+## 14) Usuário criado no Auth não aparece em `imperium_profiles` (comportamento esperado)
+
+Isso está correto: `auth.users` e `public.imperium_profiles` são tabelas diferentes.
+
+- Quando você cria usuário em **Authentication > Users**, ele entra em `auth.users`.
+- Ele **não** entra automaticamente em `imperium_profiles` a menos que você:
+  1. crie perfil manualmente no app (fluxo `getOrCreate`), ou
+  2. configure trigger no banco para criar perfil automático após signup.
+
+### 14.1 Opção recomendada agora (rápida): criar no primeiro login do app
+
+No app, após autenticar:
+
+1. buscar perfil por `owner_id = auth.uid()`;
+2. se não existir, inserir novo `imperium_profiles`;
+3. seguir fluxo normal.
+
+Esse é o comportamento que vou implementar no `ProfileController.getOrCreate(ownerId)`.
+
+### 14.2 Opção banco (automática): trigger pós-criação de usuário
+
+Se quiser que todo usuário novo já tenha perfil automaticamente, rode este SQL:
+
+```sql
+create or replace function public.handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.imperium_profiles (
+    owner_id,
+    display_name,
+    identity_visual,
+    realm_summary,
+    device_id
+  )
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)),
+    '{}'::jsonb,
+    '{}'::jsonb,
+    'bootstrap-auth-trigger'
+  )
+  on conflict (owner_id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_profile on auth.users;
+
+create trigger on_auth_user_created_profile
+after insert on auth.users
+for each row
+execute function public.handle_new_user_profile();
+```
+
+### 14.3 Importante: usuários já existentes não serão preenchidos por trigger retroativo
+
+Para usuários já criados antes do trigger, rode backfill:
+
+```sql
+insert into public.imperium_profiles (
+  owner_id,
+  display_name,
+  identity_visual,
+  realm_summary,
+  device_id
+)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'display_name', split_part(u.email, '@', 1)),
+  '{}'::jsonb,
+  '{}'::jsonb,
+  'backfill-existing-users'
+from auth.users u
+left join public.imperium_profiles p on p.owner_id = u.id
+where p.owner_id is null;
+```
+
+### 14.4 Checklist de validação rápida
+
+- [ ] Criar usuário novo no Auth.
+- [ ] Confirmar se perfil foi criado (trigger) ou criado no primeiro login (app).
+- [ ] Garantir 1 linha por usuário (`imperium_profiles_owner_uidx`).
+- [ ] Testar RLS: usuário A não lê perfil do usuário B.
+
