@@ -63,8 +63,9 @@ class TreasuryController extends StateNotifier<List<TreasuryEntry>> {
     state = _repository.all();
   }
 
-  Future<void> syncNow() async {
-    await _syncService.sync();
+  Future<TreasurySyncReport> syncNow() async {
+    final report = await _syncService.sync();
     state = _repository.all();
+    return report;
   }
 }

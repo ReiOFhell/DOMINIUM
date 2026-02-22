@@ -1,7 +1,9 @@
+import 'package:dominium/core/services/calculation_telemetry.dart';
 import 'package:dominium/core/theme/dominium_theme.dart';
 import 'package:dominium/core/widgets/glass_card.dart';
 import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:dominium/domains/treasury/data/treasury_entry.dart';
+import 'package:dominium/domains/treasury/data/treasury_sync_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -23,7 +25,7 @@ class TreasuryScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.cloud_sync),
-            onPressed: () => ref.read(treasuryEntriesProvider.notifier).syncNow(),
+            onPressed: () => _showSyncDialog(context, ref),
             tooltip: 'Sincronizar Tesouro',
           ),
         ],
@@ -97,6 +99,95 @@ class TreasuryScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _showSyncDialog(BuildContext context, WidgetRef ref) async {
+    var syncing = true;
+    TreasurySyncReport? report;
+    String? error;
+    Map<String, dynamic>? telemetry;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) {
+          Future<void> startIfNeeded() async {
+            if (!syncing || report != null || error != null) return;
+            try {
+              final result = await ref.read(treasuryEntriesProvider.notifier).syncNow();
+              if (context.mounted) {
+                setState(() {
+                  report = result;
+                  syncing = false;
+                });
+              }
+            } catch (e) {
+              telemetry = CalculationTelemetry.latestByArea('sync.treasury');
+              if (context.mounted) {
+                setState(() {
+                  error = e.toString();
+                  syncing = false;
+                });
+              }
+            }
+          }
+
+          startIfNeeded();
+
+          return AlertDialog(
+            title: const Text('Backup do Tesouro'),
+            content: SizedBox(
+              width: 420,
+              child: syncing
+                  ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 12),
+                        Text('Sincronizando com a nuvem...'),
+                      ],
+                    )
+                  : (error == null
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('✅ Backup concluído com sucesso.'),
+                            const SizedBox(height: 8),
+                            Text('Enviados: ${report?.pushed ?? 0}'),
+                            Text('Recebidos: ${report?.pulled ?? 0}'),
+                            Text('Conflitos resolvidos (LWW): ${report?.conflicts ?? 0}'),
+                            Text('Horário: ${report?.completedAt?.toLocal()}'),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('❌ Falha no backup.'),
+                            const SizedBox(height: 8),
+                            Text(error ?? 'Erro desconhecido'),
+                            if (telemetry != null) ...[
+                              const SizedBox(height: 10),
+                              const Text('Detalhes (telemetria):', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text('Mensagem: ${telemetry!['message']}'),
+                              Text('Contexto: ${telemetry!['context']}'),
+                              Text('At: ${telemetry!['at']}'),
+                            ],
+                          ],
+                        )),
+            ),
+            actions: [
+              TextButton(
+                onPressed: syncing ? null : () => Navigator.pop(context),
+                child: const Text('Fechar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _entryTile(BuildContext context, WidgetRef ref, TreasuryEntry entry, NumberFormat currency) {
     return GlassCard(
       child: ExpansionTile(
@@ -107,7 +198,9 @@ class TreasuryScreen extends ConsumerWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Local: ${entry.location}\nDescrição: ${entry.description}\nData: ${DateFormat('dd/MM/yyyy').format(entry.date)}'),
+            child: Text(
+              'Local: ${entry.location}\nDescrição: ${entry.description}\nData: ${DateFormat('dd/MM/yyyy').format(entry.date)}',
+            ),
           ),
           const SizedBox(height: 8),
           Row(

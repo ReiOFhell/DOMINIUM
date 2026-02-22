@@ -19,4 +19,15 @@ class CalculationTelemetry {
       'at': DateTime.now().toIso8601String(),
     });
   }
+
+  static Map<String, dynamic>? latestByArea(String area) {
+    final values = _box.values.toList(growable: false);
+    for (var i = values.length - 1; i >= 0; i--) {
+      final row = values[i];
+      if (row['area'] == area) {
+        return Map<String, dynamic>.from(row);
+      }
+    }
+    return null;
+  }
 }

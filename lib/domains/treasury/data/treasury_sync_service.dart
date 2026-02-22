@@ -15,24 +15,27 @@ class TreasurySyncService {
 
   Box<Map> get _settings => Hive.box<Map>(HiveBootstrap.settingsBox);
 
-  Future<void> sync() async {
+  Future<TreasurySyncReport> sync() async {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      return const TreasurySyncReport(
+        pulled: 0,
+        pushed: 0,
+        conflicts: 0,
+        completedAt: null,
+      );
+    }
 
     final checkpoint = TreasurySyncCheckpoint.fromMap(
       _settings.get(TreasurySyncCheckpoint.storageKey) ?? const {},
     );
 
     try {
-      final remoteRows = await client
-          .from('treasury_entries')
-          .select()
-          .eq('owner_id', user.id);
+      final remoteRows = await client.from('treasury_entries').select().eq('owner_id', user.id);
 
-      final remoteEntries = remoteRows
-          .map((row) => TreasuryEntry.fromMap(Map<String, dynamic>.from(row)))
-          .toList();
+      final remoteEntries =
+          remoteRows.map((row) => TreasuryEntry.fromMap(Map<String, dynamic>.from(row))).toList();
 
       final localEntries = _repository.all(includeDeleted: true);
       final localById = {for (final entry in localEntries) entry.id: entry};
@@ -40,12 +43,16 @@ class TreasurySyncService {
       final allIds = {...localById.keys, ...remoteById.keys};
 
       final pushQueue = <TreasuryEntry>[];
+      var pulled = 0;
+      var conflicts = 0;
+
       for (final id in allIds) {
         final local = localById[id];
         final remote = remoteById[id];
 
         if (local == null && remote != null) {
           await _repository.applyFromSync(remote);
+          pulled += 1;
           continue;
         }
         if (remote == null && local != null) {
@@ -54,11 +61,16 @@ class TreasurySyncService {
         }
         if (local == null || remote == null) continue;
 
+        if (!local.samePayload(remote)) {
+          conflicts += 1;
+        }
+
         final winner = chooseWinner(local, remote);
         if (winner == local) {
           pushQueue.add(local);
         } else {
           await _repository.applyFromSync(remote);
+          pulled += 1;
         }
       }
 
@@ -68,9 +80,8 @@ class TreasurySyncService {
       }
 
       final merged = _repository.all(includeDeleted: true);
-      final successHash = sha1
-          .convert(utf8.encode(jsonEncode(merged.map((entry) => entry.toMap()).toList())))
-          .toString();
+      final successHash =
+          sha1.convert(utf8.encode(jsonEncode(merged.map((entry) => entry.toMap()).toList()))).toString();
 
       final nextCheckpoint = checkpoint.copyWith(
         lastSyncAt: DateTime.now().toUtc(),
@@ -79,6 +90,13 @@ class TreasurySyncService {
       );
 
       await _settings.put(TreasurySyncCheckpoint.storageKey, nextCheckpoint.toMap());
+
+      return TreasurySyncReport(
+        pulled: pulled,
+        pushed: pushQueue.length,
+        conflicts: conflicts,
+        completedAt: nextCheckpoint.lastSyncAt,
+      );
     } catch (error) {
       await CalculationTelemetry.record(
         area: 'sync.treasury',
@@ -101,6 +119,20 @@ class TreasurySyncService {
 
     return local.deviceId.compareTo(remote.deviceId) >= 0 ? local : remote;
   }
+}
+
+class TreasurySyncReport {
+  const TreasurySyncReport({
+    required this.pulled,
+    required this.pushed,
+    required this.conflicts,
+    required this.completedAt,
+  });
+
+  final int pulled;
+  final int pushed;
+  final int conflicts;
+  final DateTime? completedAt;
 }
 
 class TreasurySyncCheckpoint {
