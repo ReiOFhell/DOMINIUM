@@ -1,4 +1,5 @@
 import 'package:dominium/domains/auth/application/auth_controller.dart';
+import 'package:dominium/domains/profile/application/profile_backup_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +10,8 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = Supabase.instance.client.auth.currentUser;
+    final backupState = ref.watch(profileBackupControllerProvider);
+    final backupController = ref.read(profileBackupControllerProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Perfil')),
@@ -36,6 +39,55 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Backup global por Perfil',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Último backup: ${_lastRunLabel(backupState.lastRunAt)}'),
+                  const SizedBox(height: 6),
+                  Text('Status: ${_statusLabel(backupState.status)}'),
+                  const SizedBox(height: 6),
+                  Text('Origem: ${_triggerLabel(backupState.lastTrigger)}'),
+                  const SizedBox(height: 6),
+                  Text('Fila pendente: ${backupState.queueSize} job(s)'),
+                  if (backupState.lastError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Última falha: ${backupState.lastError}',
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: backupState.status == GlobalBackupStatus.running
+                        ? null
+                        : () async {
+                            await backupController.runManualBackup();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Backup global executado.')),
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.cloud_upload),
+                    label: Text(
+                      backupState.status == GlobalBackupStatus.running
+                          ? 'Executando backup...'
+                          : 'Backup global agora',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: user == null
                 ? null
@@ -52,4 +104,25 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+
+  static String _lastRunLabel(DateTime? date) {
+    if (date == null) return 'nunca executado';
+    return date.toLocal().toIso8601String();
+  }
+
+  static String _statusLabel(GlobalBackupStatus status) => switch (status) {
+        GlobalBackupStatus.idle => 'ocioso',
+        GlobalBackupStatus.queued => 'pendente',
+        GlobalBackupStatus.running => 'em execução',
+        GlobalBackupStatus.success => 'ok',
+        GlobalBackupStatus.failed => 'falha',
+      };
+
+  static String _triggerLabel(GlobalBackupTrigger? trigger) => switch (trigger) {
+        null => 'indefinido',
+        GlobalBackupTrigger.manual => 'manual',
+        GlobalBackupTrigger.onChange => 'auto on-change',
+        GlobalBackupTrigger.onStartup => 'auto on-startup',
+        GlobalBackupTrigger.scheduledDaily => 'agendado diário',
+      };
 }
