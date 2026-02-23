@@ -120,3 +120,5 @@ flutter run \
 ```
 
 Sem essas variáveis, o app usa a configuração padrão do projeto Supabase já definida no bootstrap e deve abrir com tela de login cloud.
+
+- Fase 1.2 (rollout multi-domínio P1 com gate): `docs/fase1_multi_domain_rollout.md`.
