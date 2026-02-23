@@ -24,10 +24,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Identidade Imperial',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
+                  const Text('Identidade Imperial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   Text('Email: ${user?.email ?? 'modo offline'}'),
                   const SizedBox(height: 8),
@@ -45,10 +42,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Backup global por Perfil',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
+                  const Text('Backup global por Perfil', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   Text('Último backup: ${_lastRunLabel(backupState.lastRunAt)}'),
                   const SizedBox(height: 6),
@@ -61,31 +55,18 @@ class ProfileScreen extends ConsumerWidget {
                   Text('Domínios cobertos: ${backupState.coveredDomains}'),
                   if (backupState.lastError != null) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      'Última falha: ${backupState.lastError}',
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
+                    Text('Última falha: ${backupState.lastError}', style: const TextStyle(color: Colors.redAccent)),
                   ],
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: backupState.status == GlobalBackupStatus.running
                         ? null
-                        : () async {
-                            await backupController.runManualBackup();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Backup global executado.')),
-                              );
-                            }
-                          },
+                        : () => _showBackupProgressDialog(context, backupController),
                     icon: const Icon(Icons.cloud_upload),
-                    label: Text(
-                      backupState.status == GlobalBackupStatus.running
-                          ? 'Executando backup...'
-                          : 'Backup global agora',
-                    ),
+                    label: Text(backupState.status == GlobalBackupStatus.running
+                        ? 'Executando backup...'
+                        : 'Backup global agora'),
                   ),
-
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: backupState.status == GlobalBackupStatus.running
@@ -94,15 +75,12 @@ class ProfileScreen extends ConsumerWidget {
                             try {
                               await backupController.restoreLastBackup();
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Último backup restaurado.')),
-                                );
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(content: Text('Último backup restaurado.')));
                               }
                             } catch (error) {
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(error.toString())),
-                                );
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
                               }
                             }
                           },
@@ -119,14 +97,81 @@ class ProfileScreen extends ConsumerWidget {
                 ? null
                 : () async {
                     await ref.read(authControllerProvider).signOut();
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                    }
+                    if (context.mounted) Navigator.of(context).pop();
                   },
             icon: const Icon(Icons.logout),
             label: const Text('Encerrar sessão'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showBackupProgressDialog(
+    BuildContext context,
+    ProfileBackupController backupController,
+  ) async {
+    final steps = <String>[];
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setState) {
+          Future<void> startIfNeeded() async {
+            if (steps.isNotEmpty) return;
+            setState(() => steps.add('Iniciando backup global...'));
+
+            final result = await backupController.runManualBackup(onDomain: (domain) {
+              if (dialogContext.mounted) {
+                setState(() => steps.add('Processando: $domain'));
+              }
+            });
+
+            if (!dialogContext.mounted) return;
+            if (result.hasFailures) {
+              setState(() => steps.add('Falha em: ${result.failedDomains.join(', ')}'));
+            } else {
+              setState(() => steps.add('Backup finalizado com sucesso.'));
+            }
+          }
+
+          startIfNeeded();
+
+          final last = steps.isEmpty ? '' : steps.last;
+          final done = last.contains('sucesso') || last.contains('Falha em:');
+
+          return AlertDialog(
+            title: const Text('Backup global em andamento'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!done) const LinearProgressIndicator(),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 220,
+                    child: ListView.builder(
+                      itemCount: steps.length,
+                      itemBuilder: (_, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text('• ${steps[i]}'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: done ? () => Navigator.of(dialogContext).pop() : null,
+                child: const Text('Fechar'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

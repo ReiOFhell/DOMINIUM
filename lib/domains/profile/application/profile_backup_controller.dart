@@ -1,11 +1,10 @@
 import 'package:dominium/core/persistence/hive_bootstrap.dart';
 import 'package:dominium/core/services/calculation_telemetry.dart';
+import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:dominium/domains/treasury/data/treasury_sync_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
-
-import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 
 enum GlobalBackupTrigger { manual, onChange, onStartup, scheduledDaily }
 
@@ -93,6 +92,18 @@ class GlobalBackupState {
       };
 }
 
+class GlobalBackupRunResult {
+  const GlobalBackupRunResult({
+    required this.coveredDomains,
+    required this.failedDomains,
+  });
+
+  final int coveredDomains;
+  final List<String> failedDomains;
+
+  bool get hasFailures => failedDomains.isNotEmpty;
+}
+
 class GlobalBackupJob {
   const GlobalBackupJob({
     required this.id,
@@ -139,7 +150,7 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
   static const _snapshotKey = 'global_backup.last_snapshot';
 
   final TreasurySyncService _treasurySyncService;
-  bool _processing = false;
+  Future<void>? _ongoingProcess;
 
   Box<Map> get _settings => Hive.box<Map>(HiveBootstrap.settingsBox);
 
@@ -157,9 +168,13 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
     HiveBootstrap.monthlyReportsBox,
   ];
 
-  Future<void> runManualBackup() async {
+  Future<GlobalBackupRunResult> runManualBackup({void Function(String domain)? onDomain}) async {
     await _enqueue(GlobalBackupTrigger.manual);
-    await processPending();
+    await processPending(onDomain: onDomain);
+    return GlobalBackupRunResult(
+      coveredDomains: state.coveredDomains,
+      failedDomains: _failedDomainsFromMessage(state.lastError),
+    );
   }
 
   Future<void> restoreLastBackup() async {
@@ -196,110 +211,120 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
     ));
   }
 
-  Future<void> processPending() async {
-    if (_processing) return;
-    _processing = true;
+  Future<void> processPending({void Function(String domain)? onDomain}) {
+    final running = _ongoingProcess;
+    if (running != null) return running;
 
-    try {
-      while (true) {
-        final queue = _readQueue();
-        if (queue.isEmpty) {
-          final fallbackStatus = state.status == GlobalBackupStatus.running
-              ? GlobalBackupStatus.idle
-              : state.status;
-          await _persistState(state.copyWith(queueSize: 0, status: fallbackStatus));
-          break;
-        }
+    final task = _processInternal(onDomain: onDomain);
+    _ongoingProcess = task;
+    return task.whenComplete(() => _ongoingProcess = null);
+  }
 
-        final job = queue.first;
+  Future<void> _processInternal({void Function(String domain)? onDomain}) async {
+    while (true) {
+      final queue = _readQueue();
+      if (queue.isEmpty) {
+        final fallbackStatus = state.status == GlobalBackupStatus.running
+            ? GlobalBackupStatus.idle
+            : state.status;
+        await _persistState(state.copyWith(queueSize: 0, status: fallbackStatus));
+        break;
+      }
+
+      final job = queue.first;
+      await _persistState(state.copyWith(
+        queueSize: queue.length,
+        status: GlobalBackupStatus.running,
+        lastTrigger: job.trigger,
+        lastTriggerSet: true,
+        lastError: null,
+        lastErrorSet: true,
+      ));
+
+      try {
+        final snapshotResult = await _captureLocalSnapshot(trigger: job.trigger, onDomain: onDomain);
+        onDomain?.call('nuvem: treasury_entries');
+        await _treasurySyncService.sync();
+
+        queue.removeAt(0);
+        await _writeQueue(queue);
         await _persistState(state.copyWith(
           queueSize: queue.length,
-          status: GlobalBackupStatus.running,
+          status: snapshotResult.hasFailures ? GlobalBackupStatus.failed : GlobalBackupStatus.success,
+          lastRunAt: DateTime.now().toUtc(),
+          lastRunAtSet: true,
           lastTrigger: job.trigger,
           lastTriggerSet: true,
-          lastError: null,
+          lastError: snapshotResult.hasFailures
+              ? 'Falhas em domínios: ${snapshotResult.failedDomains.join(', ')}'
+              : null,
+          lastErrorSet: true,
+          coveredDomains: snapshotResult.coveredDomains,
+        ));
+      } catch (error) {
+        queue.removeAt(0);
+        await _writeQueue(queue);
+
+        await CalculationTelemetry.record(
+          area: 'sync.global_backup',
+          message: 'Falha no backup global por perfil.',
+          context: {'error': error.toString(), 'trigger': job.trigger.name},
+        );
+
+        await _persistState(state.copyWith(
+          queueSize: queue.length,
+          status: GlobalBackupStatus.failed,
+          lastRunAt: DateTime.now().toUtc(),
+          lastRunAtSet: true,
+          lastTrigger: job.trigger,
+          lastTriggerSet: true,
+          lastError: error.toString(),
           lastErrorSet: true,
         ));
-
-        try {
-          final coveredDomains = await _captureLocalSnapshot(trigger: job.trigger);
-          await _treasurySyncService.sync();
-
-          queue.removeAt(0);
-          await _writeQueue(queue);
-          await _persistState(state.copyWith(
-            queueSize: queue.length,
-            status: GlobalBackupStatus.success,
-            lastRunAt: DateTime.now().toUtc(),
-            lastRunAtSet: true,
-            lastTrigger: job.trigger,
-            lastTriggerSet: true,
-            lastError: null,
-            lastErrorSet: true,
-            coveredDomains: coveredDomains,
-          ));
-        } catch (error) {
-          queue.removeAt(0);
-          await _writeQueue(queue);
-
-          await CalculationTelemetry.record(
-            area: 'sync.global_backup',
-            message: 'Falha no backup global por perfil.',
-            context: {'error': error.toString(), 'trigger': job.trigger.name},
-          );
-
-          await _persistState(state.copyWith(
-            queueSize: queue.length,
-            status: GlobalBackupStatus.failed,
-            lastRunAt: DateTime.now().toUtc(),
-            lastRunAtSet: true,
-            lastTrigger: job.trigger,
-            lastTriggerSet: true,
-            lastError: error.toString(),
-            lastErrorSet: true,
-          ));
-          break;
-        }
       }
-    } finally {
-      _processing = false;
     }
   }
 
-  Future<int> _captureLocalSnapshot({required GlobalBackupTrigger trigger}) async {
+  Future<GlobalBackupRunResult> _captureLocalSnapshot({
+    required GlobalBackupTrigger trigger,
+    void Function(String domain)? onDomain,
+  }) async {
     final now = DateTime.now().toUtc();
     final boxes = <String, dynamic>{};
+    final failedDomains = <String>[];
 
     for (final boxName in _backupBoxes) {
-      final box = Hive.box<Map>(boxName);
-      final entries = <Map<String, dynamic>>[];
-      for (final key in box.keys) {
-        final value = box.get(key);
-        if (value == null) continue;
-        entries.add({
-          'key': key.toString(),
-          'value': Map<String, dynamic>.from(value),
-        });
+      onDomain?.call(boxName);
+      try {
+        final box = Hive.box<Map>(boxName);
+        final entries = <Map<String, dynamic>>[];
+        for (final key in box.keys) {
+          final value = box.get(key);
+          if (value == null) continue;
+          entries.add({'key': key.toString(), 'value': Map<String, dynamic>.from(value)});
+        }
+        boxes[boxName] = entries;
+      } catch (_) {
+        failedDomains.add(boxName);
       }
-      boxes[boxName] = entries;
     }
 
     await _settings.put(_snapshotKey, {
       'createdAt': now.toIso8601String(),
       'trigger': trigger.name,
       'boxes': boxes,
+      'failedDomains': failedDomains,
     });
 
-    return boxes.length;
+    return GlobalBackupRunResult(
+      coveredDomains: boxes.length,
+      failedDomains: failedDomains,
+    );
   }
 
   Future<void> _enqueue(GlobalBackupTrigger trigger) async {
     final queue = _readQueue();
-    queue.add(GlobalBackupJob(
-      id: const Uuid().v4(),
-      trigger: trigger,
-      createdAt: DateTime.now().toUtc(),
-    ));
+    queue.add(GlobalBackupJob(id: const Uuid().v4(), trigger: trigger, createdAt: DateTime.now().toUtc()));
 
     await _writeQueue(queue);
     await _persistState(state.copyWith(
@@ -317,7 +342,6 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
       state = state.copyWith(queueSize: queue.length);
       return;
     }
-
     state = GlobalBackupState.fromMap(persisted).copyWith(queueSize: queue.length);
   }
 
@@ -334,13 +358,21 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
     state = next;
     await _settings.put(_stateKey, next.toMap());
   }
+
+  List<String> _failedDomainsFromMessage(String? message) {
+    if (message == null || !message.startsWith('Falhas em domínios:')) return const [];
+    return message
+        .replaceFirst('Falhas em domínios:', '')
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
 }
 
 class GlobalBackupRestoreException implements Exception {
   const GlobalBackupRestoreException(this.message);
-
   final String message;
-
   @override
   String toString() => message;
 }
