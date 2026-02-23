@@ -57,6 +57,8 @@ class ProfileScreen extends ConsumerWidget {
                   Text('Origem: ${_triggerLabel(backupState.lastTrigger)}'),
                   const SizedBox(height: 6),
                   Text('Fila pendente: ${backupState.queueSize} job(s)'),
+                  const SizedBox(height: 6),
+                  Text('Domínios cobertos: ${backupState.coveredDomains}'),
                   if (backupState.lastError != null) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -82,6 +84,30 @@ class ProfileScreen extends ConsumerWidget {
                           ? 'Executando backup...'
                           : 'Backup global agora',
                     ),
+                  ),
+
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: backupState.status == GlobalBackupStatus.running
+                        ? null
+                        : () async {
+                            try {
+                              await backupController.restoreLastBackup();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Último backup restaurado.')),
+                                );
+                              }
+                            } catch (error) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(error.toString())),
+                                );
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Restaurar último backup'),
                   ),
                 ],
               ),

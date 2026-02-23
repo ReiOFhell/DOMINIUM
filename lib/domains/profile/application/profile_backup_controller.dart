@@ -18,6 +18,7 @@ class GlobalBackupState {
     required this.lastRunAt,
     required this.lastTrigger,
     required this.lastError,
+    required this.coveredDomains,
   });
 
   final int queueSize;
@@ -25,6 +26,7 @@ class GlobalBackupState {
   final DateTime? lastRunAt;
   final GlobalBackupTrigger? lastTrigger;
   final String? lastError;
+  final int coveredDomains;
 
   factory GlobalBackupState.initial() => const GlobalBackupState(
         queueSize: 0,
@@ -32,6 +34,7 @@ class GlobalBackupState {
         lastRunAt: null,
         lastTrigger: null,
         lastError: null,
+        coveredDomains: 0,
       );
 
   GlobalBackupState copyWith({
@@ -43,6 +46,7 @@ class GlobalBackupState {
     bool lastTriggerSet = false,
     String? lastError,
     bool lastErrorSet = false,
+    int? coveredDomains,
   }) {
     return GlobalBackupState(
       queueSize: queueSize ?? this.queueSize,
@@ -50,6 +54,7 @@ class GlobalBackupState {
       lastRunAt: lastRunAtSet ? lastRunAt : this.lastRunAt,
       lastTrigger: lastTriggerSet ? lastTrigger : this.lastTrigger,
       lastError: lastErrorSet ? lastError : this.lastError,
+      coveredDomains: coveredDomains ?? this.coveredDomains,
     );
   }
 
@@ -74,6 +79,7 @@ class GlobalBackupState {
               orElse: () => GlobalBackupTrigger.manual,
             ),
       lastError: map['lastError'] as String?,
+      coveredDomains: map['coveredDomains'] as int? ?? 0,
     );
   }
 
@@ -83,6 +89,7 @@ class GlobalBackupState {
         'lastRunAt': lastRunAt?.toIso8601String(),
         'lastTrigger': lastTrigger?.name,
         'lastError': lastError,
+        'coveredDomains': coveredDomains,
       };
 }
 
@@ -129,15 +136,64 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
 
   static const _stateKey = 'global_backup.state';
   static const _queueKey = 'global_backup.queue';
+  static const _snapshotKey = 'global_backup.last_snapshot';
 
   final TreasurySyncService _treasurySyncService;
   bool _processing = false;
 
   Box<Map> get _settings => Hive.box<Map>(HiveBootstrap.settingsBox);
 
+  static const _backupBoxes = [
+    HiveBootstrap.treasuryBox,
+    HiveBootstrap.ordersBox,
+    HiveBootstrap.campaignsBox,
+    HiveBootstrap.ritualsBox,
+    HiveBootstrap.debtsBox,
+    HiveBootstrap.codexBox,
+    HiveBootstrap.progressionBox,
+    HiveBootstrap.directDebtsBox,
+    HiveBootstrap.accountsBox,
+    HiveBootstrap.accountMovementsBox,
+    HiveBootstrap.monthlyReportsBox,
+  ];
+
   Future<void> runManualBackup() async {
     await _enqueue(GlobalBackupTrigger.manual);
     await processPending();
+  }
+
+  Future<void> restoreLastBackup() async {
+    final snapshot = _settings.get(_snapshotKey);
+    if (snapshot == null) {
+      throw const GlobalBackupRestoreException('Nenhum backup global encontrado para restaurar.');
+    }
+
+    final boxes = Map<String, dynamic>.from(snapshot['boxes'] as Map? ?? const {});
+
+    for (final boxName in _backupBoxes) {
+      final box = Hive.box<Map>(boxName);
+      await box.clear();
+
+      final rawEntries = boxes[boxName] as List? ?? const [];
+      for (final item in rawEntries) {
+        final entry = Map<String, dynamic>.from(item as Map);
+        final key = entry['key'] as String;
+        final value = Map<String, dynamic>.from(entry['value'] as Map? ?? const {});
+        await box.put(key, value);
+      }
+    }
+
+    final lastRunAtRaw = snapshot['createdAt'] as String?;
+    await _persistState(state.copyWith(
+      status: GlobalBackupStatus.success,
+      lastRunAt: lastRunAtRaw == null ? DateTime.now().toUtc() : DateTime.parse(lastRunAtRaw),
+      lastRunAtSet: true,
+      lastTrigger: GlobalBackupTrigger.manual,
+      lastTriggerSet: true,
+      lastError: null,
+      lastErrorSet: true,
+      coveredDomains: _backupBoxes.length,
+    ));
   }
 
   Future<void> processPending() async {
@@ -166,6 +222,7 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
         ));
 
         try {
+          final coveredDomains = await _captureLocalSnapshot(trigger: job.trigger);
           await _treasurySyncService.sync();
 
           queue.removeAt(0);
@@ -179,6 +236,7 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
             lastTriggerSet: true,
             lastError: null,
             lastErrorSet: true,
+            coveredDomains: coveredDomains,
           ));
         } catch (error) {
           queue.removeAt(0);
@@ -206,6 +264,33 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
     } finally {
       _processing = false;
     }
+  }
+
+  Future<int> _captureLocalSnapshot({required GlobalBackupTrigger trigger}) async {
+    final now = DateTime.now().toUtc();
+    final boxes = <String, dynamic>{};
+
+    for (final boxName in _backupBoxes) {
+      final box = Hive.box<Map>(boxName);
+      final entries = <Map<String, dynamic>>[];
+      for (final key in box.keys) {
+        final value = box.get(key);
+        if (value == null) continue;
+        entries.add({
+          'key': key.toString(),
+          'value': Map<String, dynamic>.from(value),
+        });
+      }
+      boxes[boxName] = entries;
+    }
+
+    await _settings.put(_snapshotKey, {
+      'createdAt': now.toIso8601String(),
+      'trigger': trigger.name,
+      'boxes': boxes,
+    });
+
+    return boxes.length;
   }
 
   Future<void> _enqueue(GlobalBackupTrigger trigger) async {
@@ -249,4 +334,13 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
     state = next;
     await _settings.put(_stateKey, next.toMap());
   }
+}
+
+class GlobalBackupRestoreException implements Exception {
+  const GlobalBackupRestoreException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

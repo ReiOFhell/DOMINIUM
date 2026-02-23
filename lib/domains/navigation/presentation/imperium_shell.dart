@@ -22,6 +22,7 @@ import 'package:dominium/domains/throne/application/empire_settings_provider.dar
 import 'package:dominium/domains/throne/presentation/throne_screen.dart';
 import 'package:dominium/domains/timeline/presentation/timeline_screen.dart';
 import 'package:dominium/domains/treasury/presentation/treasury_screen.dart';
+import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -76,7 +77,12 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
     final anomalyGroups = ref.watch(anomalyGroupedProvider);
     final anomalies = ref.watch(anomalyInsightsProvider);
     final directDebt = ref.watch(totalDirectDebtsProvider);
-    final realBalance = ref.watch(accountsProvider).totalBalance;
+    final accountBalance = ref.watch(accountsProvider).totalBalance;
+    final treasuryEntries = ref.watch(treasuryEntriesProvider);
+    final treasuryReceived = treasuryEntries
+        .where((entry) => entry.received && !entry.isDeleted)
+        .fold<double>(0, (sum, entry) => sum + entry.amount);
+    final realBalance = accountBalance + treasuryReceived;
     final warBudget = ref.watch(warBudgetSummaryProvider);
 
     final openDebt = debts.fold<double>(0, (s, c) => s + c.openDebt);
@@ -107,7 +113,7 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
               Text(title.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text('Estado Atual do Império: $risk'),
-              Text('Saldo real atual: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(realBalance)}'),
+              Text('Saldo real atual: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(realBalance)} (Contas + Tesouro recebido)'),
               Text('Obrigações totais: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(totalObligations)}'),
               Text('Caixa líquido projetado: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(projectedNet)}'),
               Text('Saldo livre de guerra: ${NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(warBudget.warFreeBalance)}'),
