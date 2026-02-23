@@ -70,6 +70,7 @@ class DebtsController extends StateNotifier<List<DebtCard>> {
     required double interest,
     required double iof,
   }) async {
+    final now = DateTime.now().toUtc();
     final card = DebtCard(
       id: const Uuid().v4(),
       name: name,
@@ -84,6 +85,11 @@ class DebtsController extends StateNotifier<List<DebtCard>> {
       payments: const [],
       charges: const [],
       state: DebtState.emDia,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      version: 1,
+      deviceId: 'local-device',
     );
     await _repository.upsert(card);
     state = _repository.all();

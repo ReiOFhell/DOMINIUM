@@ -59,6 +59,11 @@ void main() {
         ),
       ],
       state: DebtState.emDia,
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+      deletedAt: null,
+      version: 1,
+      deviceId: 'test-device',
     );
 
     // 200 + (600/6 * 4 parcelas restantes = 400) + 20 - 150 = 470
