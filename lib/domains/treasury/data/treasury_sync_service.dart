@@ -111,6 +111,21 @@ class TreasurySyncService {
     }
   }
 
+
+  static TreasurySyncException _mapSyncError(Object error) {
+    if (error is PostgrestException && error.code == 'PGRST205') {
+      return TreasurySyncException(
+        'Tabela de backup do Tesouro não encontrada na nuvem. Crie `public.treasury_entries` e tente novamente.',
+        technicalDetails: error.toString(),
+      );
+    }
+
+    return TreasurySyncException(
+      'Falha no backup do Tesouro. Verifique conexão e configuração da nuvem.',
+      technicalDetails: error.toString(),
+    );
+  }
+
   static TreasuryEntry chooseWinner(TreasuryEntry local, TreasuryEntry remote) {
     if (local.updatedAt.isAfter(remote.updatedAt)) return local;
     if (remote.updatedAt.isAfter(local.updatedAt)) return remote;
