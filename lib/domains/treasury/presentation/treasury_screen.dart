@@ -166,6 +166,14 @@ class TreasuryScreen extends ConsumerWidget {
                             const Text('❌ Falha no backup.'),
                             const SizedBox(height: 8),
                             Text(error ?? 'Erro desconhecido'),
+                            if ((error ?? '').contains('public.treasury_entries')) ...[
+                              const SizedBox(height: 8),
+                              const Text('Como corrigir agora:', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text('1) Abra o SQL Editor do Supabase.'),
+                              const Text('2) Crie a tabela public.treasury_entries.'),
+                              const Text('3) Aplique as policies RLS por owner_id.'),
+                              const Text('4) Rode o backup novamente.'),
+                            ],
                             if (telemetry != null) ...[
                               const SizedBox(height: 10),
                               const Text('Detalhes (telemetria):', style: TextStyle(fontWeight: FontWeight.bold)),
