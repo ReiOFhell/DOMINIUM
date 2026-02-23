@@ -8,6 +8,8 @@ final authStateChangesProvider = StreamProvider<AuthState>((ref) {
   return ref.read(authControllerProvider).authChanges;
 });
 
+final localOfflineModeProvider = StateProvider<bool>((_) => false);
+
 final authSessionBootstrapProvider = FutureProvider<void>((ref) async {
   final controller = ref.read(authControllerProvider);
   if (controller.currentSession != null) {
@@ -22,6 +24,7 @@ class AuthGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bootstrap = ref.watch(authSessionBootstrapProvider);
     final controller = ref.read(authControllerProvider);
+    final localOfflineMode = ref.watch(localOfflineModeProvider);
 
     return bootstrap.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -29,7 +32,7 @@ class AuthGate extends ConsumerWidget {
       data: (_) {
         ref.watch(authStateChangesProvider);
         final hasSession = controller.currentSession != null;
-        if (hasSession) return const ImperiumShell();
+        if (hasSession || localOfflineMode) return const ImperiumShell();
         return const LoginScreen();
       },
     );
@@ -128,6 +131,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: OutlinedButton(
                     onPressed: _loading ? null : () => _submit(signUp: true),
                     child: const Text('Criar conta e entrar'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _loading
+                        ? null
+                        : () => ref.read(localOfflineModeProvider.notifier).state = true,
+                    child: const Text('Continuar em modo offline'),
                   ),
                 ),
               ],

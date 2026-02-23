@@ -30,10 +30,9 @@ class AuthController {
     } catch (error) {
       await CalculationTelemetry.record(
         area: 'auth.profile.ensure',
-        message: 'Falha ao garantir perfil do usuário autenticado.',
+        message: 'Falha ao garantir perfil do usuário autenticado; mantendo modo local.',
         context: {'error': error.toString(), 'userId': user.id},
       );
-      rethrow;
     }
   }
 
