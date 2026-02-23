@@ -182,6 +182,11 @@ class DebtCard {
     required this.payments,
     required this.charges,
     required this.state,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.deletedAt,
+    required this.version,
+    required this.deviceId,
   });
 
   final String id;
@@ -197,6 +202,13 @@ class DebtCard {
   final List<DebtPayment> payments;
   final List<DebtCharge> charges;
   final DebtState state;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final int version;
+  final String deviceId;
+
+  bool get isDeleted => deletedAt != null;
 
   double get openDebt {
     final purchaseTotal = purchases.fold<double>(0, (sum, p) {
@@ -225,31 +237,70 @@ class DebtCard {
         'payments': payments.map((e) => e.toMap()).toList(),
         'charges': charges.map((e) => e.toMap()).toList(),
         'state': state.name,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'deletedAt': deletedAt?.toIso8601String(),
+        'version': version,
+        'deviceId': deviceId,
       };
 
-  factory DebtCard.fromMap(Map map) => DebtCard(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        limit: (map['limit'] as num).toDouble(),
-        bank: map['bank'] as String,
-        closingDay: map['closingDay'] as int,
-        dueDay: map['dueDay'] as int,
-        defaultInterest: (map['defaultInterest'] as num).toDouble(),
-        iof: (map['iof'] as num).toDouble(),
-        purchases: ((map['purchases'] as List?) ?? const [])
-            .map((e) => CardPurchase.fromMap(e as Map))
-            .toList(),
-        invoices: ((map['invoices'] as List?) ?? const [])
-            .map((e) => InvoiceCycle.fromMap(e as Map))
-            .toList(),
-        payments: ((map['payments'] as List?) ?? const [])
-            .map((e) => DebtPayment.fromMap(e as Map))
-            .toList(),
-        charges: ((map['charges'] as List?) ?? const [])
-            .map((e) => DebtCharge.fromMap(e as Map))
-            .toList(),
-        state: DebtState.values.byName(map['state'] as String),
-      );
+  Map<String, dynamic> toRemoteMap({required String ownerId}) => {
+        'id': id,
+        'owner_id': ownerId,
+        'name': name,
+        'limit': limit,
+        'bank': bank,
+        'closing_day': closingDay,
+        'due_day': dueDay,
+        'default_interest': defaultInterest,
+        'iof': iof,
+        'purchases': purchases.map((e) => e.toMap()).toList(),
+        'invoices': invoices.map((e) => e.toMap()).toList(),
+        'payments': payments.map((e) => e.toMap()).toList(),
+        'charges': charges.map((e) => e.toMap()).toList(),
+        'state': state.name,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt.toIso8601String(),
+        'deleted_at': deletedAt?.toIso8601String(),
+        'version': version,
+        'device_id': deviceId,
+      };
+
+  factory DebtCard.fromMap(Map map) {
+    final now = DateTime.now().toUtc();
+    final createdAtRaw = (map['createdAt'] ?? map['created_at']) as String?;
+    final updatedAtRaw = (map['updatedAt'] ?? map['updated_at']) as String?;
+    final deletedAtRaw = (map['deletedAt'] ?? map['deleted_at']) as String?;
+
+    return DebtCard(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      limit: (map['limit'] as num).toDouble(),
+      bank: map['bank'] as String,
+      closingDay: (map['closingDay'] ?? map['closing_day']) as int,
+      dueDay: (map['dueDay'] ?? map['due_day']) as int,
+      defaultInterest: (map['defaultInterest'] ?? map['default_interest'] as num).toDouble(),
+      iof: (map['iof'] as num).toDouble(),
+      purchases: ((map['purchases'] as List?) ?? const [])
+          .map((e) => CardPurchase.fromMap(e as Map))
+          .toList(),
+      invoices: ((map['invoices'] as List?) ?? const [])
+          .map((e) => InvoiceCycle.fromMap(e as Map))
+          .toList(),
+      payments: ((map['payments'] as List?) ?? const [])
+          .map((e) => DebtPayment.fromMap(e as Map))
+          .toList(),
+      charges: ((map['charges'] as List?) ?? const [])
+          .map((e) => DebtCharge.fromMap(e as Map))
+          .toList(),
+      state: DebtState.values.byName(map['state'] as String),
+      createdAt: createdAtRaw == null ? now : DateTime.parse(createdAtRaw),
+      updatedAt: updatedAtRaw == null ? now : DateTime.parse(updatedAtRaw),
+      deletedAt: deletedAtRaw == null ? null : DateTime.parse(deletedAtRaw),
+      version: map['version'] as int? ?? 1,
+      deviceId: (map['deviceId'] ?? map['device_id']) as String? ?? 'local-device',
+    );
+  }
 
   DebtCard copyWith({
     List<CardPurchase>? purchases,
@@ -257,6 +308,12 @@ class DebtCard {
     List<DebtPayment>? payments,
     List<DebtCharge>? charges,
     DebtState? state,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
+    bool deletedAtSet = false,
+    int? version,
+    String? deviceId,
   }) {
     return DebtCard(
       id: id,
@@ -272,6 +329,27 @@ class DebtCard {
       payments: payments ?? this.payments,
       charges: charges ?? this.charges,
       state: state ?? this.state,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAtSet ? deletedAt : this.deletedAt,
+      version: version ?? this.version,
+      deviceId: deviceId ?? this.deviceId,
     );
+  }
+
+  bool samePayload(DebtCard other) {
+    return name == other.name &&
+        limit == other.limit &&
+        bank == other.bank &&
+        closingDay == other.closingDay &&
+        dueDay == other.dueDay &&
+        defaultInterest == other.defaultInterest &&
+        iof == other.iof &&
+        state == other.state &&
+        purchases.length == other.purchases.length &&
+        invoices.length == other.invoices.length &&
+        payments.length == other.payments.length &&
+        charges.length == other.charges.length &&
+        deletedAt == other.deletedAt;
   }
 }
