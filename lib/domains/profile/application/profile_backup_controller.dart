@@ -331,6 +331,10 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
     return GlobalBackupRunResult(
       coveredDomains: boxes.length,
       failedDomains: failedDomains,
+      status: failedDomains.isEmpty ? GlobalBackupStatus.success : GlobalBackupStatus.failed,
+      message: failedDomains.isEmpty
+          ? 'Snapshot local capturado com sucesso.'
+          : 'Falhas em domínios: ${failedDomains.join(', ')}',
     );
   }
 
