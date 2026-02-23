@@ -17,6 +17,7 @@ import 'package:dominium/domains/liquidity/presentation/accounts_screen.dart';
 import 'package:dominium/domains/orders/presentation/orders_screen.dart';
 import 'package:dominium/domains/progression/application/progression_provider.dart';
 import 'package:dominium/domains/progression/presentation/progression_screen.dart';
+import 'package:dominium/domains/profile/presentation/profile_screen.dart';
 import 'package:dominium/domains/throne/application/empire_settings_provider.dart';
 import 'package:dominium/domains/throne/presentation/throne_screen.dart';
 import 'package:dominium/domains/timeline/presentation/timeline_screen.dart';
@@ -338,6 +339,12 @@ class _ImperiumShellState extends ConsumerState<ImperiumShell> {
           subtitle: 'Biblioteca viva: descoberta, uso e domínio dos módulos.',
           icon: Icons.menu_book,
           onTap: () => _open(context, const CodexScreen()),
+        ),
+        DomainHubAction(
+          title: 'Perfil',
+          subtitle: 'Dados da conta, identificação atual e sessão.',
+          icon: Icons.person,
+          onTap: () => _open(context, const ProfileScreen()),
         ),
       ],
     );
