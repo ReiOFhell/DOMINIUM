@@ -96,12 +96,16 @@ class GlobalBackupRunResult {
   const GlobalBackupRunResult({
     required this.coveredDomains,
     required this.failedDomains,
+    required this.status,
+    required this.message,
   });
 
   final int coveredDomains;
   final List<String> failedDomains;
+  final GlobalBackupStatus status;
+  final String message;
 
-  bool get hasFailures => failedDomains.isNotEmpty;
+  bool get hasFailures => failedDomains.isNotEmpty || status == GlobalBackupStatus.failed;
 }
 
 class GlobalBackupJob {
@@ -171,9 +175,17 @@ class ProfileBackupController extends StateNotifier<GlobalBackupState> {
   Future<GlobalBackupRunResult> runManualBackup({void Function(String domain)? onDomain}) async {
     await _enqueue(GlobalBackupTrigger.manual);
     await processPending(onDomain: onDomain);
+    final failedDomains = _failedDomainsFromMessage(state.lastError);
+    final status = state.status;
+    final message = status == GlobalBackupStatus.success
+        ? 'Backup finalizado com sucesso.'
+        : (state.lastError ?? 'Falha no backup global.');
+
     return GlobalBackupRunResult(
       coveredDomains: state.coveredDomains,
-      failedDomains: _failedDomainsFromMessage(state.lastError),
+      failedDomains: failedDomains,
+      status: status,
+      message: message,
     );
   }
 

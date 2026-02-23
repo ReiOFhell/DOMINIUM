@@ -1,5 +1,15 @@
 import 'package:dominium/domains/auth/application/auth_controller.dart';
+import 'package:dominium/domains/campaigns/application/campaigns_provider.dart';
+import 'package:dominium/domains/codex/application/codex_provider.dart';
+import 'package:dominium/domains/debts/application/debts_provider.dart';
+import 'package:dominium/domains/debts_direct/application/direct_debts_provider.dart';
+import 'package:dominium/domains/liquidity/application/accounts_provider.dart';
+import 'package:dominium/domains/monthly_closure/application/monthly_closure_provider.dart';
+import 'package:dominium/domains/orders/application/orders_provider.dart';
 import 'package:dominium/domains/profile/application/profile_backup_controller.dart';
+import 'package:dominium/domains/progression/application/progression_provider.dart';
+import 'package:dominium/domains/rituals/application/ritual_provider.dart';
+import 'package:dominium/domains/treasury/application/treasury_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -61,7 +71,7 @@ class ProfileScreen extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: backupState.status == GlobalBackupStatus.running
                         ? null
-                        : () => _showBackupProgressDialog(context, backupController),
+                        : () => _showBackupProgressDialog(context, ref, backupController),
                     icon: const Icon(Icons.cloud_upload),
                     label: Text(backupState.status == GlobalBackupStatus.running
                         ? 'Executando backup...'
@@ -74,9 +84,11 @@ class ProfileScreen extends ConsumerWidget {
                         : () async {
                             try {
                               await backupController.restoreLastBackup();
+                              _refreshDomains(ref);
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(content: Text('Último backup restaurado.')));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Último backup restaurado e domínios recarregados.')),
+                                );
                               }
                             } catch (error) {
                               if (context.mounted) {
@@ -109,9 +121,12 @@ class ProfileScreen extends ConsumerWidget {
 
   Future<void> _showBackupProgressDialog(
     BuildContext context,
+    WidgetRef ref,
     ProfileBackupController backupController,
   ) async {
     final steps = <String>[];
+    var started = false;
+    var done = false;
 
     await showDialog<void>(
       context: context,
@@ -119,27 +134,38 @@ class ProfileScreen extends ConsumerWidget {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setState) {
           Future<void> startIfNeeded() async {
-            if (steps.isNotEmpty) return;
+            if (started) return;
+            started = true;
             setState(() => steps.add('Iniciando backup global...'));
 
-            final result = await backupController.runManualBackup(onDomain: (domain) {
-              if (dialogContext.mounted) {
-                setState(() => steps.add('Processando: $domain'));
-              }
-            });
+            try {
+              final result = await backupController.runManualBackup(onDomain: (domain) {
+                if (dialogContext.mounted) {
+                  setState(() => steps.add('Processando: $domain'));
+                }
+              });
 
-            if (!dialogContext.mounted) return;
-            if (result.hasFailures) {
-              setState(() => steps.add('Falha em: ${result.failedDomains.join(', ')}'));
-            } else {
-              setState(() => steps.add('Backup finalizado com sucesso.'));
+              if (!dialogContext.mounted) return;
+              if (result.hasFailures) {
+                final details = result.failedDomains.isEmpty
+                    ? result.message
+                    : 'Falha em: ${result.failedDomains.join(', ')}';
+                setState(() => steps.add(details));
+              } else {
+                setState(() => steps.add(result.message));
+              }
+            } catch (error) {
+              if (dialogContext.mounted) {
+                setState(() => steps.add('Falha no backup: $error'));
+              }
+            } finally {
+              if (dialogContext.mounted) {
+                setState(() => done = true);
+              }
             }
           }
 
           startIfNeeded();
-
-          final last = steps.isEmpty ? '' : steps.last;
-          final done = last.contains('sucesso') || last.contains('Falha em:');
 
           return AlertDialog(
             title: const Text('Backup global em andamento'),
@@ -166,7 +192,12 @@ class ProfileScreen extends ConsumerWidget {
             ),
             actions: [
               TextButton(
-                onPressed: done ? () => Navigator.of(dialogContext).pop() : null,
+                onPressed: done
+                    ? () {
+                        Navigator.of(dialogContext).pop();
+                        _refreshDomains(ref);
+                      }
+                    : null,
                 child: const Text('Fechar'),
               ),
             ],
@@ -174,6 +205,19 @@ class ProfileScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  void _refreshDomains(WidgetRef ref) {
+    ref.invalidate(treasuryEntriesProvider);
+    ref.invalidate(ordersProvider);
+    ref.invalidate(campaignsProvider);
+    ref.invalidate(ritualsProvider);
+    ref.invalidate(debtsProvider);
+    ref.invalidate(codexProvider);
+    ref.invalidate(progressionProvider);
+    ref.invalidate(directDebtsProvider);
+    ref.invalidate(accountsProvider);
+    ref.invalidate(monthlyReportsProvider);
   }
 
   static String _lastRunLabel(DateTime? date) {
