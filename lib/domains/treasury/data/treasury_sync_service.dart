@@ -98,15 +98,16 @@ class TreasurySyncService {
         completedAt: nextCheckpoint.lastSyncAt,
       );
     } catch (error) {
+      final mappedError = _mapSyncError(error);
       await CalculationTelemetry.record(
         area: 'sync.treasury',
-        message: 'Falha no sync do domínio treasury.',
+        message: mappedError.userMessage,
         context: {
-          'error': error.toString(),
+          'error': mappedError.technicalDetails,
           'lastSyncAt': checkpoint.lastSyncAt?.toIso8601String(),
         },
       );
-      rethrow;
+      throw mappedError;
     }
   }
 
@@ -119,6 +120,17 @@ class TreasurySyncService {
 
     return local.deviceId.compareTo(remote.deviceId) >= 0 ? local : remote;
   }
+}
+
+
+class TreasurySyncException implements Exception {
+  const TreasurySyncException(this.userMessage, {required this.technicalDetails});
+
+  final String userMessage;
+  final String technicalDetails;
+
+  @override
+  String toString() => userMessage;
 }
 
 class TreasurySyncReport {

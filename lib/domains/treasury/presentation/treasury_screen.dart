@@ -124,7 +124,7 @@ class TreasuryScreen extends ConsumerWidget {
               telemetry = CalculationTelemetry.latestByArea('sync.treasury');
               if (context.mounted) {
                 setState(() {
-                  error = e.toString();
+                  error = e is TreasurySyncException ? e.userMessage : e.toString();
                   syncing = false;
                 });
               }

@@ -135,6 +135,8 @@ create policy "update own profile"
   with check (owner_id = auth.uid());
 ```
 
+
+
 ### 4.3 Contrato de integração no app (sequência mínima)
 
 1. App inicializa Hive + providers locais.
@@ -583,3 +585,17 @@ create policy "treasury update own"
   with check (owner_id = auth.uid());
 ```
 
+### 15.2 Erro comum no primeiro backup (`PGRST205`)
+
+Se aparecer erro como:
+
+`Could not find the table 'public.treasury_entries' in the schema cache (PGRST205)`
+
+significa que a tabela remota do domínio ainda não existe (ou não foi aplicada corretamente).
+
+Ação:
+
+1. Abrir SQL Editor no Supabase.
+2. Executar o SQL da seção **15.1**.
+3. Confirmar políticas RLS da tabela.
+4. Tentar backup novamente no app.
