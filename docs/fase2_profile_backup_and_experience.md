@@ -6,11 +6,12 @@
 
 ### 1.1 Backup global por Perfil
 - Um único comando de backup no Perfil deve capturar **todo o conteúdo** do app de uma vez.
-- O backup deve respeitar `owner_id` e versionamento por domínio.
-- O usuário precisa visualizar:
-  - último backup realizado,
+- O backup deve respeitar `owner_id` e versionamento por domínio (snapshot por domínio + `version` de cada entidade sincronizada).
+- O usuário precisa visualizar no Perfil, de forma clara:
+  - último backup realizado (data/hora),
   - status (ok / pendente / falha),
-  - origem (manual, auto on-change, auto on-startup, agendado diário).
+  - origem (manual, auto on-change, auto on-startup, agendado diário),
+  - quantidade de domínios cobertos no último backup.
 
 ### 1.2 Backup automático em eventos críticos
 Executar backup em segundo plano nos gatilhos:
@@ -202,3 +203,17 @@ Origem dos itens:
 3. Entregar primeiro backup manual + status no perfil.
 4. Em seguida, automação startup/on-change.
 5. Finalizar com agenda diária + reforma visual + cosméticos.
+
+---
+
+
+## 10) Política de versionamento do app (até 2.0)
+
+- Enquanto o produto evolui rumo à versão estável 2.0, usar série `1.x.x`.
+- Cada mudança de código deve incrementar a versão do app no `pubspec.yaml`.
+- Estratégia recomendada:
+  - `1.x.0` para pacote de funcionalidades relevantes,
+  - `1.x.y` para ajustes incrementais/correções,
+  - build number (`+n`) também deve subir a cada release.
+- Ao concluir os critérios de estabilidade definidos para o produto, promover para `2.0.0`.
+
